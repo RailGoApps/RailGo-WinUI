@@ -68,6 +68,9 @@ public partial class TrainNumberTripDetailsViewModel : ObservableRecipient
     [ObservableProperty]
     public string beginStationName;
 
+    [ObservableProperty]
+    public ObservableCollection<DelayInfo> trainDelayInfo = new();
+
     [RelayCommand]
     public async Task GetInformationAsync((string train_no, string date) parameters)
     {
@@ -96,6 +99,11 @@ public partial class TrainNumberTripDetailsViewModel : ObservableRecipient
         FromTime = firstItem.Depart;
         EndStationName = lastItem.Station;
         ArrivalTime = lastItem.Arrive;
+
+        // 实时正晚点查询
+
+        var TrainDelayTask = queryService.QueryTrainDelayAsync(date, train_no, BeginStationName, EndStationName);
+        trainDelayInfo = await Task.WhenAll(TrainDelayTask);
 
         // 计算运行时间
         TimeSpan startTime = TimeSpan.Parse(FromTime);

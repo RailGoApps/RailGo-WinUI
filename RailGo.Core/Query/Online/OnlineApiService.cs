@@ -74,7 +74,7 @@ public class OnlineApiService
 
     #region 实时数据接口
 
-    public static async Task<List<DelayInfo>> QueryTrainDelayAsync(string date, string trainNumber, string fromStation, string toStation, string url)
+    public static async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string date, string trainNumber, string fromStation, string toStation, string url)
     {
         var data = new
         {
@@ -85,7 +85,18 @@ public class OnlineApiService
         };
 
         var delayResponse = await HttpService.PostAsync<DelayResponse>(url, data);
-        return delayResponse?.Data;
+        var result = new ObservableCollection<DelayInfo>();
+
+        if (delayResponse?.Data != null)
+        {
+            // 将数据添加到 ObservableCollection
+            foreach (var item in delayResponse.Data)
+            {
+                result.Add(item);
+            }
+        }
+
+        return result;
     }
 
     public static async Task<PlatformInfo> QueryPlatformInfoAsync(string stationCode, string trainDate, string type, string stationTrainCode, string url)
