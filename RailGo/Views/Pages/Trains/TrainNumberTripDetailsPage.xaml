@@ -120,6 +120,7 @@
                             <controls:DataGridTextColumn Binding="{Binding StopTime, TargetNullValue=' -- '}" x:Uid="StopMinutes_Header" />
                             <controls:DataGridTextColumn Binding="{Binding Distance, TargetNullValue=' -- '}" x:Uid="Distance_Header" />
                             <controls:DataGridTextColumn Binding="{Binding Speed, TargetNullValue=' -- '}" x:Uid="Speed_Header" />
+                            <controls:DataGridTextColumn Binding="{Binding DelayDisplay, TargetNullValue=' -- '}" Header="正晚点" />
                         </controls:DataGrid.Columns>
                     </controls:DataGrid>
                 </Grid>
