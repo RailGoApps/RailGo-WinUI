@@ -100,11 +100,26 @@ public partial class TrainNumberTripDetailsViewModel : ObservableRecipient
         EndStationName = lastItem.Station;
         ArrivalTime = lastItem.Arrive;
 
-        // 实时正晚点查询
-
+        // 正晚点查询
         var TrainDelayTask = queryService.QueryTrainDelayAsync(date, train_no, BeginStationName, EndStationName);
         await Task.WhenAll(TrainDelayTask);
         TrainDelayInfo = TrainDelayTask.Result;
+        if (TrainDelayInfo != null && TrainDelayInfo.Count > 0)
+        {
+            var delayDict = TrainDelayInfo.ToDictionary(d => d.StationName, d => d);
+            var tempStations = new ObservableCollection<TimetableItem>();
+
+            foreach (var station in ViaStations)
+            {
+                var newStation = station;
+                if (delayDict.TryGetValue(station.Station, out var delayInfo))
+                {
+                    newStation.DelayInfo = delayInfo;
+                }
+                tempStations.Add(newStation);
+            }
+            ViaStations = tempStations;
+        }
 
         // 计算运行时间
         TimeSpan startTime = TimeSpan.Parse(FromTime);

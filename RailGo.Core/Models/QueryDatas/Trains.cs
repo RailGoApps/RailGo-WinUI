@@ -234,6 +234,19 @@ public class TimetableItem
     {
         get; set;
     }
+
+    [JsonIgnore]
+    public DelayInfo DelayInfo
+    {
+        get; set;
+    }
+
+    [JsonIgnore]
+    public bool HasDelay => DelayInfo != null && DelayInfo.DelayMinutes > 0;
+
+    [JsonIgnore]
+    public string DelayDisplay => HasDelay ?
+        $"晚点{DelayInfo.DelayMinutes}分钟" : "正点";
 }
 #endregion
 
