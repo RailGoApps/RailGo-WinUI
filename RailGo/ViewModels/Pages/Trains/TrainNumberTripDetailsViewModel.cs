@@ -103,7 +103,8 @@ public partial class TrainNumberTripDetailsViewModel : ObservableRecipient
         // 实时正晚点查询
 
         var TrainDelayTask = queryService.QueryTrainDelayAsync(date, train_no, BeginStationName, EndStationName);
-        trainDelayInfo = await Task.WhenAll(TrainDelayTask);
+        await Task.WhenAll(TrainDelayTask);
+        TrainDelayInfo = TrainDelayTask.Result;
 
         // 计算运行时间
         TimeSpan startTime = TimeSpan.Parse(FromTime);

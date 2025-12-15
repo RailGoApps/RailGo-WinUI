@@ -184,7 +184,7 @@ public class ApiService
     /// <summary>
     /// 正晚点查询
     /// </summary>
-    public static async Task<List<DelayInfo>> QueryTrainDelayAsync(bool isOfflineMode, string urlOrDbPath, string date, string trainNumber,
+    public static async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(bool isOfflineMode, string urlOrDbPath, string date, string trainNumber,
         string fromStation, string toStation)
     {
         if (!isOfflineMode)
