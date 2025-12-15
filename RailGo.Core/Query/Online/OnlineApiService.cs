@@ -76,15 +76,16 @@ public class OnlineApiService
 
     public static async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string date, string trainNumber, string fromStation, string toStation, string url)
     {
-        var data = new
+        // 创建表单数据字典
+        var formData = new Dictionary<string, string>
         {
-            date,
-            trainNumber,
-            fromStationName = fromStation,
-            toStationName = toStation
+            { "date", date },
+            { "trainNumber", trainNumber },
+            { "fromStationName", fromStation },
+            { "toStationName", toStation }
         };
 
-        var delayResponse = await HttpService.PostAsync<DelayResponse>(url, data);
+        var delayResponse = await HttpService.PostFormAsync<DelayResponse>(url, formData);
         var result = new ObservableCollection<DelayInfo>();
 
         if (delayResponse?.Data != null)
