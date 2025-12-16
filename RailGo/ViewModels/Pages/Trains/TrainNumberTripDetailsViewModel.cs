@@ -144,13 +144,13 @@ public partial class TrainNumberTripDetailsViewModel : ObservableRecipient
         TrainDelayInfo = TrainDelayTask.Result;
         if (TrainDelayInfo != null && TrainDelayInfo.Count > 0)
         {
-            var delayDict = TrainDelayInfo.ToDictionary(d => d.StationName, d => d);
+            var delayDict = TrainDelayInfo.ToDictionary(d => d.StationTelecode, d => d);
             var tempStations = new ObservableCollection<TimetableItem>();
 
             foreach (var station in ViaStations)
             {
                 var newStation = station;
-                if (delayDict.TryGetValue(station.Station, out var delayInfo))
+                if (delayDict.TryGetValue(station.StationTelecode, out var delayInfo))
                 {
                     newStation.DelayInfo = delayInfo;
                 }

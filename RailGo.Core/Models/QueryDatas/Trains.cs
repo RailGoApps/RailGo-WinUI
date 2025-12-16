@@ -307,6 +307,12 @@ public class DelayInfo
         get; set;
     }
 
+    [JsonProperty("stationTelegramCode")]
+    public string StationTelecode
+    {
+        get; set;
+    }
+
     [JsonProperty("delayMinutes")]
     public int? DelayMinutes
     {
