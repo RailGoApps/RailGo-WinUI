@@ -125,7 +125,10 @@
                                     <DataTemplate>
                                         <TextBlock 
                                             Text="{Binding DelayDisplay, TargetNullValue=' -- '}"
-                                            Foreground="{Binding DelayColor}" />
+                                            Foreground="{Binding DelayColor}" 
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="3"/>
                                     </DataTemplate>
                                 </controls:DataGridTemplateColumn.CellTemplate>
                             </controls:DataGridTemplateColumn>
