@@ -258,6 +258,72 @@ public class TimetableItem
         > 0 => "#c0392b",   
         < 0 => "#27ae60"
     };
+
+    [JsonIgnore]
+    public string? ActualArrivalTime
+    {
+        get
+        {
+            if (DelayInfo == null)
+                return null;
+
+            if (string.IsNullOrEmpty(DelayInfo.ArrivalTime) || !DelayInfo.DelayMinutes.HasValue)
+                return null;
+
+            try
+            {
+                if (TimeSpan.TryParse(DelayInfo.ArrivalTime, out var arrivalTime))
+                {
+                    var actualTime = arrivalTime.Add(TimeSpan.FromMinutes(DelayInfo.DelayMinutes.Value));
+
+                    // 处理跨天情况（如果超过24小时）
+                    var days = (int)actualTime.TotalDays;
+                    var timePart = actualTime.ToString(@"hh\:mm");
+
+                    return days > 0 ? $"+{days} {timePart}" : timePart;
+                }
+            }
+            catch
+            {
+
+            }
+
+            return null;
+        }
+    }
+
+    [JsonIgnore]
+    public string? ActualDepartureTime
+    {
+        get
+        {
+            if (DelayInfo == null)
+                return null;
+
+            if (string.IsNullOrEmpty(DelayInfo.DepartureTime) || !DelayInfo.DelayMinutes.HasValue)
+                return null;
+
+            try
+            {
+                if (TimeSpan.TryParse(DelayInfo.DepartureTime, out var departureTime))
+                {
+                    var actualTime = departureTime.Add(TimeSpan.FromMinutes(DelayInfo.DelayMinutes.Value));
+
+                    // 处理跨天情况（如果超过24小时）
+                    var days = (int)actualTime.TotalDays;
+                    var timePart = actualTime.ToString(@"hh\:mm");
+
+                    return days > 0 ? $"+{days} {timePart}" : timePart;
+                }
+            }
+            catch
+            {
+                
+            }
+
+            return null;
+        }
+    }
 }
 #endregion
 
