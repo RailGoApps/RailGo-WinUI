@@ -68,6 +68,9 @@ public partial class TrainNumberTripDetailsViewModel : ObservableRecipient
     [ObservableProperty]
     public string beginStationName;
 
+    [ObservableProperty]
+    public ObservableCollection<DelayInfo> trainDelayInfo = new();
+
     [RelayCommand]
     public async Task GetInformationAsync((string train_no, string date) parameters)
     {
@@ -134,6 +137,27 @@ public partial class TrainNumberTripDetailsViewModel : ObservableRecipient
         }
         Routing = Realdata.Diagram;
         ViaStations = Realdata.Timetable;
+
+        // 正晚点查询
+        var TrainDelayTask = queryService.QueryTrainDelayAsync(date, train_no, BeginStationName, EndStationName);
+        await Task.WhenAll(TrainDelayTask);
+        TrainDelayInfo = TrainDelayTask.Result;
+        if (TrainDelayInfo != null && TrainDelayInfo.Count > 0)
+        {
+            var delayDict = TrainDelayInfo.ToDictionary(d => d.StationTelecode, d => d);
+            var tempStations = new ObservableCollection<TimetableItem>();
+
+            foreach (var station in ViaStations)
+            {
+                var newStation = station;
+                if (delayDict.TryGetValue(station.StationTelecode, out var delayInfo))
+                {
+                    newStation.DelayInfo = delayInfo;
+                }
+                tempStations.Add(newStation);
+            }
+            ViaStations = tempStations;
+        }
         progressBarVM.TaskIsInProgress = "Collapsed";
     }
 

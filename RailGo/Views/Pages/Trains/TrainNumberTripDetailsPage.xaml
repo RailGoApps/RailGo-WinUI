@@ -115,11 +115,59 @@
                         <controls:DataGrid.Columns>
                             <controls:DataGridTextColumn Binding="{Binding Station, TargetNullValue=' -- '}" x:Uid="StationName_Header" />
                             <controls:DataGridTextColumn Binding="{Binding TrainCode, TargetNullValue=' -- '}" x:Uid="TrainNumber_Header" />
-                            <controls:DataGridTextColumn Binding="{Binding Arrive, TargetNullValue=' -- '}" x:Uid="ArrivalTime_Header" />
-                            <controls:DataGridTextColumn Binding="{Binding Depart, TargetNullValue=' -- '}" x:Uid="DepartureTime_Header" />
+                            <controls:DataGridTemplateColumn Header="到达时间（预计/实际）">
+                                <controls:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5">
+                                            <TextBlock 
+                                                Text="{Binding Arrive, TargetNullValue=' -- '}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Margin="3"/>
+                                            <TextBlock Text="/" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                            <TextBlock 
+                                                Text="{Binding ActualArrivalTime, TargetNullValue=' -- '}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Margin="3"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </controls:DataGridTemplateColumn.CellTemplate>
+                            </controls:DataGridTemplateColumn>
+                            <controls:DataGridTemplateColumn Header="发车时间（预计/实际）">
+                                <controls:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5">
+                                            <TextBlock 
+                                                Text="{Binding Depart, TargetNullValue=' -- '}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Margin="3"/>
+                                            <TextBlock Text="/" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                            <TextBlock 
+                                                Text="{Binding ActualDepartureTime, TargetNullValue=' -- '}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Margin="3"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </controls:DataGridTemplateColumn.CellTemplate>
+                            </controls:DataGridTemplateColumn>
                             <controls:DataGridTextColumn Binding="{Binding StopTime, TargetNullValue=' -- '}" x:Uid="StopMinutes_Header" />
                             <controls:DataGridTextColumn Binding="{Binding Distance, TargetNullValue=' -- '}" x:Uid="Distance_Header" />
                             <controls:DataGridTextColumn Binding="{Binding Speed, TargetNullValue=' -- '}" x:Uid="Speed_Header" />
+                            <controls:DataGridTemplateColumn Header="正晚点">
+                                <controls:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock 
+                                            Text="{Binding DelayDisplay, TargetNullValue=' -- '}"
+                                            Foreground="{Binding DelayColor}" 
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Margin="3"/>
+                                    </DataTemplate>
+                                </controls:DataGridTemplateColumn.CellTemplate>
+                            </controls:DataGridTemplateColumn>
                         </controls:DataGrid.Columns>
                     </controls:DataGrid>
                 </Grid>

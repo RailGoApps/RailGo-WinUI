@@ -302,7 +302,7 @@ public class QueryService : IQueryService
     /// <summary>
     /// 正晚点查询
     /// </summary>
-    public async Task<List<DelayInfo>> QueryTrainDelayAsync(string date, string trainNumber, string fromStation, string toStation)
+    public async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string date, string trainNumber, string fromStation, string toStation)
     {
         var GotPath = await GetPathWithCompletement("QueryTrainDelay");
         if (!GotPath.IsOfflineMode)
