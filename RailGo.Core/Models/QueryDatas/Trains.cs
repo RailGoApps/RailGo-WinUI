@@ -242,11 +242,22 @@ public class TimetableItem
     }
 
     [JsonIgnore]
-    public bool HasDelay => DelayInfo != null && DelayInfo.DelayMinutes > 0;
+    public string DelayDisplay => DelayInfo?.DelayMinutes switch
+    {
+        null => "--",         
+        0 => "正点",    
+        > 0 => $"晚点{DelayInfo.DelayMinutes}分钟",  
+        < 0 => $"提前{-DelayInfo.DelayMinutes}分钟"  
+    };
 
     [JsonIgnore]
-    public string DelayDisplay => HasDelay ?
-        $"晚点{DelayInfo.DelayMinutes}分钟" : "正点";
+    public string DelayColor => DelayInfo?.DelayMinutes switch
+    {
+        null => "#000000",   
+        0 => "#000000",     
+        > 0 => "#c0392b",   
+        < 0 => "#27ae60"
+    };
 }
 #endregion
 
