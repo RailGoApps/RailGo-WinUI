@@ -187,6 +187,19 @@
                                     Description="查询动车组配属和运行交路。"/>
                             </Button.Content>
                         </Button>
+
+                        <Button x:Name="StationToStationButton" 
+                                Command="{x:Bind ViewModel.NavigationCommand}" 
+                                CommandParameter="{x:Bind StationToStationButton.Name}"
+                                Style="{StaticResource FeatureButtonStyle}"
+                                ContentTemplate="{StaticResource FeatureButtonTemplate}">
+                            <Button.Content>
+                                <ButtonModel:FeatureButtonData 
+                                    Icon="&#xE8AB;"
+                                    Title="车站信息"
+                                    Description="查询动车组配属和运行交路。"/>
+                            </Button.Content>
+                        </Button>
                     </StackPanel>
                 </ScrollViewer>
             </StackPanel>

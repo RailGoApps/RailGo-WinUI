@@ -5,6 +5,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using RailGo.Core.Query.Online;
 using RailGo.ViewModels.Pages.Stations;
+using RailGo.ViewModels.Pages.StationToStation;
 using RailGo.ViewModels.Pages.TrainEmus;
 using RailGo.ViewModels.Pages.Trains;
 
@@ -119,6 +120,9 @@ public partial class MainViewModel : ObservableObject
                 break;
             case "ToStationsButton":
                 navigationService.NavigateTo(typeof(Station_InformationViewModel).FullName!);
+                break;
+            case "StationToStationButton":
+                navigationService.NavigateTo(typeof(StationToStationViewModel).FullName!);
                 break;
             default:
                 navigationService.NavigateTo(typeof(MainViewModel).FullName!);
