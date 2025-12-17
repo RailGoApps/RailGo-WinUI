@@ -94,10 +94,19 @@
         <Grid x:Name="ContentArea" SizeChanged="OnContentAreaSizeChanged">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+                <InfoBar
+                    IsOpen="True"
+                    Severity="Informational"
+                    Title="公告"
+                    IsClosable="False"
+                    Message="{x:Bind ViewModel.CurrentNotice, Mode=TwoWay}" />
+            </Grid>
 
-            <Grid Grid.Row="0">
+            <Grid Grid.Row="1">
                 <controls:FlipView x:Name="BannerFlipView"
                                   ItemsSource="{x:Bind ViewModel.BannerImages, Mode=OneWay}"
                                   SelectedIndex="{x:Bind ViewModel.CurrentBannerIndex, Mode=TwoWay}"
@@ -135,7 +144,7 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </Grid>
-            <StackPanel Margin="0,20,0,20" Grid.Row="1">
+            <StackPanel Margin="0,20,0,20" Grid.Row="2">
                 <TextBlock>
                     <Bold>功能列表</Bold>
                 </TextBlock>
