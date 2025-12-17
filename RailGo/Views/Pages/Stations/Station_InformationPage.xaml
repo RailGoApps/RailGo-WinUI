@@ -41,6 +41,7 @@
             <Grid.Resources>
                 <DataTemplate x:Key="RowDetailsTemplate">
                     <StackPanel Orientation="Horizontal">
+                        <HyperlinkButton Margin="10,10" Content="选择" Click="SelectClick"/>
                         <HyperlinkButton Margin="10,10" Content="查看详情" Click="StationDetailsBtn_Click"/>
                     </StackPanel>
                 </DataTemplate>

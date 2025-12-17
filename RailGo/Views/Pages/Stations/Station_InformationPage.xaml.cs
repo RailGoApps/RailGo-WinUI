@@ -38,6 +38,28 @@ public sealed partial class Station_InformationPage : Page
         if (_item == null)
             return;
 
+        StationDetailsPage page = new()
+        {
+            DataContext = _item
+        };
+
+        TabViewItem tabViewItem = new()
+        {
+            Header = _item.Name,
+            Content = page,
+            CanDrag = true,
+            IconSource = new FontIconSource() { Glyph = "\uF161" }
+        };
+
+        MainWindow.Instance.MainTabView.TabItems.Add(tabViewItem);
+        MainWindow.Instance.MainTabView.SelectedItem = tabViewItem;
+    }
+
+    private void SelectClick(object sender, RoutedEventArgs e)
+    {
+        if (_item == null)
+            return;
+
         if (OpenMode == "NavigationView")
         {
             StationDetailsPage page = new()
