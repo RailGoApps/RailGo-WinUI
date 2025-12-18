@@ -63,4 +63,9 @@ public sealed partial class MainPage : Page
         double newHeight = (pageWidth / BannerWidthRatio) * BannerHeightRatio;
         BannerFlipView.Height = newHeight;
     }
+
+    private async void ShowAllNoticesButton_Click(object sender, RoutedEventArgs e)
+    {
+        await AllNoticesDialog.ShowAsync();
+    }
 }

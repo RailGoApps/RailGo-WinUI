@@ -87,131 +87,162 @@
             </Grid>
         </DataTemplate>
     </Page.Resources>
-
-    <ScrollViewer VerticalScrollMode="Auto" 
+    <Grid>
+        <ScrollViewer VerticalScrollMode="Auto" 
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollMode="Disabled">
-        <Grid x:Name="ContentArea" SizeChanged="OnContentAreaSizeChanged">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            <Grid Grid.Row="0" Margin="0,0,0,8">
-                <InfoBar
+            <Grid x:Name="ContentArea" SizeChanged="OnContentAreaSizeChanged">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <InfoBar
                     IsOpen="True"
                     Severity="Informational"
                     Title="公告"
                     IsClosable="False"
-                    Message="{x:Bind ViewModel.CurrentNotice, Mode=TwoWay}" />
-            </Grid>
+                    Message="{x:Bind ViewModel.CurrentNotice, Mode=TwoWay}">
+                        <InfoBar.ActionButton>
+                            <HyperlinkButton Content="查看全部"  Click="ShowAllNoticesButton_Click"/>
+                        </InfoBar.ActionButton>
+                    </InfoBar>
+                </Grid>
 
-            <Grid Grid.Row="1">
-                <controls:FlipView x:Name="BannerFlipView"
+                <Grid Grid.Row="1">
+                    <controls:FlipView x:Name="BannerFlipView"
                                   ItemsSource="{x:Bind ViewModel.BannerImages, Mode=OneWay}"
                                   SelectedIndex="{x:Bind ViewModel.CurrentBannerIndex, Mode=TwoWay}"
                                   SelectionChanged="BannerFlipView_SelectionChanged">
-                    <controls:FlipView.ItemTemplate>
-                        <DataTemplate x:DataType="x:String">
-                            <Viewbox Stretch="Uniform" MaxHeight="{Binding MaxBannerHeight, Mode=OneWay}">
-                                <Image Source="{x:Bind}" 
+                        <controls:FlipView.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Viewbox Stretch="Uniform" MaxHeight="{Binding MaxBannerHeight, Mode=OneWay}">
+                                    <Image Source="{x:Bind}" 
                                        Stretch="None"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"/>
-                            </Viewbox>
-                        </DataTemplate>
-                    </controls:FlipView.ItemTemplate>
-                </controls:FlipView>
+                                </Viewbox>
+                            </DataTemplate>
+                        </controls:FlipView.ItemTemplate>
+                    </controls:FlipView>
 
-                <ItemsControl HorizontalAlignment="Center" 
+                    <ItemsControl HorizontalAlignment="Center" 
                              VerticalAlignment="Bottom"
                              Margin="0,0,0,10"
                              ItemsSource="{x:Bind ViewModel.BannerImages, Mode=OneWay}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Width="8" 
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="8" 
                                    Height="8" 
                                    Margin="4" 
                                    CornerRadius="4"
                                    Background="White"
                                    Opacity="0.7"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Grid>
-            <StackPanel Margin="0,20,0,20" Grid.Row="2">
-                <TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+                <StackPanel Margin="0,20,0,20" Grid.Row="2">
+                    <TextBlock>
                     <Bold>功能列表</Bold>
-                </TextBlock>
-                <ScrollViewer
+                    </TextBlock>
+                    <ScrollViewer
                          HorizontalScrollMode="Auto"
                          HorizontalScrollBarVisibility="Hidden"
                          VerticalScrollMode="Disabled"
                          VerticalScrollBarVisibility="Hidden">
-                    <StackPanel HorizontalAlignment="Left" 
+                        <StackPanel HorizontalAlignment="Left" 
                            VerticalAlignment="Top" 
                            Orientation="Horizontal"
                            Margin="0,5,0,5">
 
-                        <Button x:Name="ToTrainEmusButton" 
+                            <Button x:Name="ToTrainEmusButton" 
                             Command="{x:Bind ViewModel.NavigationCommand}" 
                             CommandParameter="{x:Bind ToTrainEmusButton.Name}"
                             Style="{StaticResource FeatureButtonStyle}"
                             ContentTemplate="{StaticResource FeatureButtonTemplate}">
-                            <Button.Content>
-                                <ButtonModel:FeatureButtonData 
+                                <Button.Content>
+                                    <ButtonModel:FeatureButtonData 
                                 Icon="&#xE7F0;"
                                 Title="动车组交路"
                                 Description="查询动车组配属和运行交路。"/>
-                            </Button.Content>
-                        </Button>
+                                </Button.Content>
+                            </Button>
 
-                        <Button x:Name="ToTrainsButton" 
+                            <Button x:Name="ToTrainsButton" 
                             Command="{x:Bind ViewModel.NavigationCommand}" 
                             CommandParameter="{x:Bind ToTrainsButton.Name}"
                             Style="{StaticResource FeatureButtonStyle}"
                             ContentTemplate="{StaticResource FeatureButtonTemplate}">
-                            <Button.Content>
-                                <ButtonModel:FeatureButtonData 
+                                <Button.Content>
+                                    <ButtonModel:FeatureButtonData 
                                 Icon="&#xE7C0;"
                                 Title="车次查询"
                                 Description="查询时刻、开行日等信息。"/>
-                            </Button.Content>
-                        </Button>
+                                </Button.Content>
+                            </Button>
 
-                        <Button x:Name="ToStationsButton" 
+                            <Button x:Name="ToStationsButton" 
                                 Command="{x:Bind ViewModel.NavigationCommand}" 
                                 CommandParameter="{x:Bind ToStationsButton.Name}"
                                 Style="{StaticResource FeatureButtonStyle}"
                                 ContentTemplate="{StaticResource FeatureButtonTemplate}">
-                            <Button.Content>
-                                <ButtonModel:FeatureButtonData 
+                                <Button.Content>
+                                    <ButtonModel:FeatureButtonData 
                                     Icon="&#xE707;"
                                     Title="车站信息"
                                     Description="查询动车组配属和运行交路。"/>
-                            </Button.Content>
-                        </Button>
+                                </Button.Content>
+                            </Button>
 
-                        <Button x:Name="StationToStationButton" 
+                            <Button x:Name="StationToStationButton" 
                                 Command="{x:Bind ViewModel.NavigationCommand}" 
                                 CommandParameter="{x:Bind StationToStationButton.Name}"
                                 Style="{StaticResource FeatureButtonStyle}"
                                 ContentTemplate="{StaticResource FeatureButtonTemplate}">
-                            <Button.Content>
-                                <ButtonModel:FeatureButtonData 
+                                <Button.Content>
+                                    <ButtonModel:FeatureButtonData 
                                     Icon="&#xE8AB;"
                                     Title="车站信息"
                                     Description="查询动车组配属和运行交路。"/>
-                            </Button.Content>
-                        </Button>
-                    </StackPanel>
-                </ScrollViewer>
-            </StackPanel>
-        </Grid>
-    </ScrollViewer>
+                                </Button.Content>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+        <ContentDialog x:Name="AllNoticesDialog"
+              Title="所有系统公告"
+              CloseButtonText="关闭">
+            <ScrollViewer VerticalScrollMode="Auto" 
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollMode="Disabled">
+                <ListView x:Name="AllNoticesListView"
+                 ItemsSource="{x:Bind ViewModel.Notices, Mode=OneWay}"
+                 SelectionMode="None"
+                 IsItemClickEnabled="False"
+                 BorderThickness="0">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Grid Margin="0,8,0,8">
+                                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                   CornerRadius="8">
+                                    <TextBlock Text="{x:Bind}"
+                                      TextWrapping="WrapWholeWords"
+                                      FontSize="14"/>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </ScrollViewer>
+        </ContentDialog>
+    </Grid>
 </Page>
