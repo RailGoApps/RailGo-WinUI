@@ -147,7 +147,7 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            Notices.Add("公告测试");
+            Notices.Add("由于WinUI版本开发者@mstouk57g的某些不可抗因素，RailGo-WinUI版本将会无限期暂时停更，恢复时间待定。如果有问题，可以使用uniapp版本。");
             var notices = await SettingsAPIService.GetNoticesAsync();
 
             if (notices != null && notices.Count > 0)
