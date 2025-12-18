@@ -2,6 +2,8 @@
 
 _2026年新年特别更新_
 
+<img width="1938" height="585" alt="AutoBanner2026" src="https://github.com/user-attachments/assets/d2c3fb36-a097-46fb-826a-36766a610dc8" />
+
 > [!NOTE]
 > 好耶，第一个正式Release
 
