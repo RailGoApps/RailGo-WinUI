@@ -1,7 +1,7 @@
 param(
     [string]$Configuration = "Release",
     [string]$RuntimeIdentifier = "win-x64",
-    [string]$Version = "1.0.0",
+    [string]$Version = "0.1.2",
     [switch]$SkipInstaller
 )
 

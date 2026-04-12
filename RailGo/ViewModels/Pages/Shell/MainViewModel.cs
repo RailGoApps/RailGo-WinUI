@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
@@ -122,7 +122,6 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            BannerImages.Add("/Assets/HomeBanner.jpg");
             var images = await SettingsAPIService.GetBannerImagesAsync();
 
             if (images?.Count > 0)
@@ -147,30 +146,9 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            Notices.Add("由于WinUI版本开发者@mstouk57g的某些不可抗因素，RailGo-WinUI版本将会无限期暂时停更，恢复时间待定。如果有问题，可以使用uniapp版本。");
-            var notices = await SettingsAPIService.GetNoticesAsync();
-
-            if (notices != null && notices.Count > 0)
-            {
-                foreach (var notice in notices)
-                {
-                    Notices.Add(notice);
-                }
-
-                HasNotices = true;
-                CurrentNotice = Notices[0]; // 显示第一条公告
-
-                // 如果有多个公告，启动轮播
-                if (Notices.Count > 1)
-                {
-                    _noticeTimer.Start();
-                }
-            }
-            else
-            {
-                HasNotices = false;
-                CurrentNotice = "暂无系统公告";
-            }
+            Notices.Add("欢迎使用RailGo!");
+            HasNotices = true;
+            CurrentNotice = Notices[0]; // 显示第一条公告
         }
         catch (Exception ex)
         {
