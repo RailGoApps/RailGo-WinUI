@@ -113,7 +113,7 @@ public partial class StationDetailsViewModel : ObservableRecipient
             if (IfBigscreen)
             {
                 var stationTask = queryService.QueryStationQueryAsync(teleCode);
-                var screenTask = queryService.QueryGetBigScreenDataAsync(stationName);
+                var screenTask = queryService.QueryGetBigScreenDataAsync(teleCode);
                 await Task.WhenAll(stationTask, screenTask);
                 stationResponse = stationTask.Result;
                 screenResponse = screenTask.Result;

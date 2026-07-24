@@ -255,12 +255,12 @@ public class QueryService : IQueryService
     /// <summary>
     /// 车站大屏数据
     /// </summary>
-    public async Task<BigScreenData> QueryGetBigScreenDataAsync(string stationName)
+    public async Task<BigScreenData> QueryGetBigScreenDataAsync(string stationTelecode)
     {
         var GotPath = await GetPathWithCompletement("QueryGetBigScreenData");
         if (!GotPath.IsOfflineMode)
         {
-            return await ApiService.GetBigScreenDataAsync(GotPath.IsOfflineMode, GotPath.Path, stationName);
+            return await ApiService.GetBigScreenDataAsync(GotPath.IsOfflineMode, GotPath.Path, stationTelecode);
         }
         return new();
     }
@@ -340,3 +340,4 @@ public class QueryService : IQueryService
 
     #endregion
 }
+

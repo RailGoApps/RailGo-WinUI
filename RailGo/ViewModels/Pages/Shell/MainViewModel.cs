@@ -25,7 +25,6 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isAutoPlayEnabled = true;
 
-    // 新增公告相关属性
     [ObservableProperty]
     private ObservableCollection<string> _notices = new ObservableCollection<string>();
 
@@ -36,15 +35,27 @@ public partial class MainViewModel : ObservableObject
     private bool _hasNotices;
 
     private DispatcherTimer _autoPlayTimer;
-    private DispatcherTimer _noticeTimer; // 新增公告轮播定时器
+    private DispatcherTimer _noticeTimer;
     private int _currentNoticeIndex = 0;
 
     public MainViewModel()
     {
         _ = LoadBannerImagesAsync();
-        _ = LoadNoticesAsync(); // 加载公告
+        InitializeDefaultNotices();
         InitializeAutoPlayTimer();
-        InitializeNoticeTimer(); // 初始化公告轮播定时器
+        InitializeNoticeTimer();
+    }
+
+    /// <summary>
+    /// 初始化默认公告
+    /// </summary>
+    private void InitializeDefaultNotices()
+    {
+        Notices.Add("欢迎使用RailGo！");
+        Notices.Add("WinUI新版本0.1.3正式上线，欢迎使用，如有问题请在设置-关于中进入交流群中反馈，感谢支持。");
+        Notices.Add("本软件为免费使用，如果是付费的那就是被骗了，盗版举报请发送邮件至report@railgo.dev");
+        HasNotices = true;
+        CurrentNotice = Notices[0];
     }
 
     private void InitializeAutoPlayTimer()
@@ -62,24 +73,20 @@ public partial class MainViewModel : ObservableObject
     private void InitializeNoticeTimer()
     {
         _noticeTimer = new DispatcherTimer();
-        _noticeTimer.Interval = TimeSpan.FromSeconds(5); // 每5秒切换一次公告
+        _noticeTimer.Interval = TimeSpan.FromSeconds(5);
         _noticeTimer.Tick += NoticeTimer_Tick;
     }
 
     private void AutoPlayTimer_Tick(object sender, object e)
     {
         if (BannerImages.Count == 0) return;
-
         CurrentBannerIndex = (CurrentBannerIndex + 1) % BannerImages.Count;
     }
 
     private void NoticeTimer_Tick(object sender, object e)
     {
         if (Notices.Count == 0) return;
-
         CurrentNotice = Notices[_currentNoticeIndex];
-
-        // 更新索引，循环播放
         _currentNoticeIndex = (_currentNoticeIndex + 1) % Notices.Count;
     }
 
@@ -111,7 +118,6 @@ public partial class MainViewModel : ObservableObject
         {
             _autoPlayTimer.Start();
         }
-
         if (HasNotices && _noticeTimer != null && !_noticeTimer.IsEnabled)
         {
             _noticeTimer.Start();
@@ -123,14 +129,12 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var images = await SettingsAPIService.GetBannerImagesAsync();
-
             if (images?.Count > 0)
             {
                 foreach (var imageUrl in images)
                 {
                     BannerImages.Add(imageUrl);
                 }
-
                 if (_isAutoPlayEnabled && _autoPlayTimer != null && !_autoPlayTimer.IsEnabled)
                 {
                     _autoPlayTimer.Start();
@@ -142,30 +146,12 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private async Task LoadNoticesAsync()
-    {
-        try
-        {
-            Notices.Add("欢迎使用RailGo!");
-            HasNotices = true;
-            CurrentNotice = Notices[0]; // 显示第一条公告
-        }
-        catch (Exception ex)
-        {
-            HasNotices = false;
-            CurrentNotice = "加载公告失败";
-        }
-    }
-
     [RelayCommand]
     private void NextNotice()
     {
         if (Notices.Count == 0) return;
-
         _currentNoticeIndex = (_currentNoticeIndex + 1) % Notices.Count;
         CurrentNotice = Notices[_currentNoticeIndex];
-
-        // 重置定时器
         ResetNoticeTimer();
     }
 
@@ -173,11 +159,8 @@ public partial class MainViewModel : ObservableObject
     private void PreviousNotice()
     {
         if (Notices.Count == 0) return;
-
         _currentNoticeIndex = (_currentNoticeIndex - 1 + Notices.Count) % Notices.Count;
         CurrentNotice = Notices[_currentNoticeIndex];
-
-        // 重置定时器
         ResetNoticeTimer();
     }
 
@@ -194,7 +177,6 @@ public partial class MainViewModel : ObservableObject
     private void ToggleNoticeAutoPlay()
     {
         if (_noticeTimer == null) return;
-
         if (_noticeTimer.IsEnabled)
         {
             _noticeTimer.Stop();
@@ -221,7 +203,7 @@ public partial class MainViewModel : ObservableObject
             case "ToStationsButton":
                 navigationService.NavigateTo(typeof(Station_InformationViewModel).FullName!);
                 break;
-            case "StationToStationButton":
+            case "ToStationToStationButton":
                 navigationService.NavigateTo(typeof(StationToStationViewModel).FullName!);
                 break;
             default:
@@ -234,7 +216,6 @@ public partial class MainViewModel : ObservableObject
     {
         _autoPlayTimer?.Stop();
         _noticeTimer?.Stop();
-
         _autoPlayTimer.Tick -= AutoPlayTimer_Tick;
         _noticeTimer.Tick -= NoticeTimer_Tick;
     }

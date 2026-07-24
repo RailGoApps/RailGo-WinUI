@@ -1,27 +1,33 @@
-## Windows版本0.1.2.0_Release更新内容：
+﻿## Windows版本0.1.3.0_Release更新内容
 
-_0.1.2.0特别更新_
+_0.1.3.0版本更新_
 
-<img width="1938" height="585" alt="AutoBanner2026" src="https://github.com/user-attachments/assets/d2c3fb36-a097-46fb-826a-36766a610dc8" />
+### ✨ Feature
 
-> [!NOTE]
-> 用户呼声最高的自定义背景在这个版本终于实现啦！
+- 全面升级API接口至V2版本，提升数据查询效率和稳定性
+- 新增系统主题跟随功能，自动识别Windows深色/浅色模式
+- 设置页面新增"打开官网"快捷访问按钮
+- 设置页面新增"RailGo Center"功能入口
+- 设置页面新增"加入交流群"功能，支持一键复制群号
+- 首页公告新增版本更新提示和反盗版声明
 
-### ✨Feature
+### 🎨 UI改进
 
-- 添加背景图片自定义的功能
+- 优化设置页面布局，增加滚动视窗支持非全屏模式显示
+- 移除左侧导航栏的"站站区间查询"功能
+- 优化首页功能卡片显示，修正描述文本
+- 设置页面增加"AZ Studio 版权所有"版权信息
 
-### 🎆Special
+### 🛠️ 其他
 
-- 马上就要到2026了（嗯，确信
-- 版本号进入0.x阶段
-- 第一个正式Release，没有挂Beta标的
+- 版本号更新至0.1.3
+- 更新CHANGELOG文档
 
 ---
 
-> [!WARNING]
-> 由于WinUI版本开发者@mstouk57g的某些不可抗因素，目前RailGo-WinUI版本的开发由@君之我所系负责
->
-> 如果有问题，可以使用uniapp版本。网页版的uniapp在[https://rail.ink/](https://rail.ink/)
+> 感谢所有用户的支持与反馈！
 
-![来自mstouk57g的亲笔告别书](https://github.com/user-attachments/assets/6a89afdd-3573-4f86-919c-b93538c9418d)
+> 如果有问题，可以在设置-关于中进入交流群中反馈，感谢支持。
+> 本软件为免费使用，如果是付费的那就是被骗了，盗版举报请发送邮件至report@railgo.dev
+
+![RailGo](https://github.com/user-attachments/assets/d2c3fb36-a097-46fb-826a-36766a610dc8)

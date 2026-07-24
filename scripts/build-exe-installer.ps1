@@ -1,7 +1,7 @@
-param(
+﻿param(
     [string]$Configuration = "Release",
     [string]$RuntimeIdentifier = "win-x64",
-    [string]$Version = "0.1.2",
+    [string]$Version = "0.1.3",
     [switch]$SkipInstaller
 )
 
@@ -96,3 +96,4 @@ if (-not $isccPath) {
     $installerScriptPath
 
 Write-Host "Installer output directory: $installerDir"
+

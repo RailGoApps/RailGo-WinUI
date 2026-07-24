@@ -7,52 +7,37 @@ namespace RailGo.Core.Models.Settings;
 public class VersionInfo
 {
     [JsonProperty("latest_db")]
-    public int LatestDb
-    {
-        get; set;
-    }
+    public int LatestDb { get; set; }
 
     [JsonProperty("db")]
-    public string Db
-    {
-        get; set;
-    }
+    public string Db { get; set; }
 
     [JsonProperty("latest_pack")]
-    public int LatestPack
-    {
-        get; set;
-    }
+    public int LatestPack { get; set; }
 
     [JsonProperty("pack")]
-    public string Pack
-    {
-        get; set;
-    }
+    public string Pack { get; set; }
 }
 
 // 下载URL响应
 public class DownloadUrlResponse
 {
+    [JsonProperty("code")]
+    public int Code { get; set; }
+
+    [JsonProperty("msg")]
+    public string Msg { get; set; }
+
     [JsonProperty("url")]
-    public string Url
-    {
-        get; set;
-    }
+    public string Url { get; set; }
 }
 
 // 动车组图片贡献者响应
 public class EmuContributorResponse
 {
     [JsonProperty("code")]
-    public int Code
-    {
-        get; set;
-    }
+    public int Code { get; set; }
 
     [JsonProperty("data")]
-    public List<string> Data
-    {
-        get; set;
-    }
+    public List<string> Data { get; set; }
 }

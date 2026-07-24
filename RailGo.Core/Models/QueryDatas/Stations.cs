@@ -54,6 +54,42 @@ public class StationPreselectResult
     {
         get; set;
     }
+
+    [JsonProperty("city")]
+    public string City
+    {
+        get; set;
+    }
+
+    [JsonProperty("level")]
+    public string Level
+    {
+        get; set;
+    }
+
+    [JsonProperty("lines")]
+    public List<string> Lines
+    {
+        get; set;
+    }
+
+    [JsonProperty("province")]
+    public string Province
+    {
+        get; set;
+    }
+
+    [JsonProperty("tmism")]
+    public string Tmism
+    {
+        get; set;
+    }
+
+    [JsonProperty("trainList")]
+    public List<string> TrainList
+    {
+        get; set;
+    }
 }
 #endregion
 
@@ -124,110 +160,111 @@ public class Station
     {
         get; set;
     }
+
+    [JsonProperty("city")]
+    public string City
+    {
+        get; set;
+    }
+
+    [JsonProperty("level")]
+    public string Level
+    {
+        get; set;
+    }
+
+    [JsonProperty("province")]
+    public string Province
+    {
+        get; set;
+    }
+
+    [JsonProperty("lines")]
+    public List<string> Lines
+    {
+        get; set;
+    }
+
+    [JsonProperty("tmism")]
+    public string Tmism
+    {
+        get; set;
+    }
 }
 #endregion
 
 #region 车站大屏数据查询
-// 大屏数据
 public class BigScreenData
 {
-    [JsonProperty("station")]
-    public string Station
-    {
-        get; set;
-    }
-
     [JsonProperty("data")]
-    [JsonConverter(typeof(StationScreenItemListConverter))]
     public ObservableCollection<StationScreenItem> Data
     {
         get; set;
     }
-}
 
-// 自定义转换器
-public class StationScreenItemListConverter : JsonConverter
-{
-    public override bool CanConvert(Type objectType)
+    [JsonProperty("msg")]
+    public string Msg
     {
-        return objectType == typeof(ObservableCollection<StationScreenItem>);
+        get; set;
     }
 
-    public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+    [JsonProperty("success")]
+    public bool Success
     {
-        var collection = new ObservableCollection<StationScreenItem>();
-
-        if (reader.TokenType == JsonToken.StartArray)
-        {
-            var array = JArray.Load(reader);
-
-            foreach (var item in array)
-            {
-                if (item is JArray jArray && jArray.Count >= 6)
-                {
-                    var screenItem = new StationScreenItem
-                    {
-                        TrainNumber = jArray[0]?.ToString(),
-                        FromStation = jArray[1]?.ToString(),
-                        ToStation = jArray[2]?.ToString(),
-                        ScheduleTime = jArray[3]?.ToString(),
-                        WaitingArea = jArray[4]?.ToString(),
-                        Status = jArray[5]?.ToString()
-                    };
-                    collection.Add(screenItem);
-                }
-            }
-        }
-
-        return collection;
-    }
-
-    public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
-    {
-        throw new NotImplementedException();
+        get; set;
     }
 }
 
-// 车站大屏项
 public class StationScreenItem
 {
-    [JsonProperty("0")]
-    public string TrainNumber // 车次
+    [JsonProperty("bigScreenPort")]
+    public List<string> BigScreenPort
     {
         get; set;
-    }         
+    }
 
-    [JsonProperty("1")]
-    public string FromStation // 始发站
+    [JsonProperty("bigScreenStatusCode")]
+    public string BigScreenStatusCode
     {
         get; set;
-    }         
+    }
 
-    [JsonProperty("2")]
-    public string ToStation // 终到站
+    [JsonProperty("bigScreenStatus")]
+    public string BigScreenStatus
     {
         get; set;
-    }           
+    }
 
-    [JsonProperty("3")]
-    public string ScheduleTime // 计划时间
+    [JsonProperty("trainNum")]
+    public string TrainNumber
     {
         get; set;
-    }        
+    }
 
-    [JsonProperty("4")]
-    public string WaitingArea // 候车区域
+    [JsonProperty("time")]
+    public string ScheduleTime
     {
         get; set;
-    }         
+    }
 
-    [JsonProperty("5")]
-    public string Status // 状态
+    [JsonProperty("timeDelay")]
+    public int TimeDelay
     {
         get; set;
-    }               
+    }
 
-    // 格式化时间
+    [JsonProperty("trainStartStation")]
+    public string FromStation
+    {
+        get; set;
+    }
+
+    [JsonProperty("trainEndStation")]
+    public string ToStation
+    {
+        get; set;
+    }
+
     [JsonIgnore]
     public string DisplayTime
     {
@@ -239,31 +276,45 @@ public class StationScreenItem
         }
     }
 
-    // 分离候车室
     [JsonIgnore]
     public string DisplayWaitingRoom
     {
         get
         {
-            if (string.IsNullOrEmpty(WaitingArea))
+            if (BigScreenPort == null || BigScreenPort.Count == 0)
                 return string.Empty;
-
-            var parts = WaitingArea.Split('/');
-            return parts.Length > 0 ? parts[0] : WaitingArea;
+            return BigScreenPort[0];
         }
     }
 
-    // 分离检票口
     [JsonIgnore]
     public string DisplayTicketGate
     {
         get
         {
-            if (string.IsNullOrEmpty(WaitingArea))
+            if (BigScreenPort == null || BigScreenPort.Count <= 1)
                 return string.Empty;
+            return BigScreenPort[1];
+        }
+    }
 
-            var parts = WaitingArea.Split('/');
-            return parts.Length > 1 ? parts[1] : string.Empty;
+    [JsonIgnore]
+    public string Status
+    {
+        get
+        {
+            return BigScreenStatus ?? BigScreenStatusCode ?? string.Empty;
+        }
+    }
+
+    [JsonIgnore]
+    public string WaitingArea
+    {
+        get
+        {
+            if (BigScreenPort == null || BigScreenPort.Count == 0)
+                return string.Empty;
+            return string.Join("/", BigScreenPort);
         }
     }
 }

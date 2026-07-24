@@ -3,6 +3,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using RailGo.ViewModels.Pages.Settings;
 using RailGo.Views.Pages.Settings.DataSources;
+using Windows.System;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace RailGo.Views.Pages.Settings;
 
@@ -10,10 +12,7 @@ public sealed partial class SettingsPage : Page
 {
     private readonly IBackgroundImageService _backgroundImageService;
 
-    public SettingsViewModel ViewModel
-    {
-        get;
-    }
+    public SettingsViewModel ViewModel { get; }
 
     public SettingsPage()
     {
@@ -37,7 +36,6 @@ public sealed partial class SettingsPage : Page
         if (ViewModel?.ElementTheme != null)
         {
             var theme = ViewModel.ElementTheme.ToString();
-
             foreach (ComboBoxItem item in ThemeComboBox.Items)
             {
                 if (item.Tag?.ToString() == theme)
@@ -54,7 +52,6 @@ public sealed partial class SettingsPage : Page
         if (ThemeComboBox.SelectedItem is ComboBoxItem selectedItem)
         {
             var themeString = selectedItem.Tag?.ToString();
-
             if (Enum.TryParse<ElementTheme>(themeString, out var theme))
             {
                 if (ViewModel?.ElementTheme != theme)
@@ -64,10 +61,10 @@ public sealed partial class SettingsPage : Page
             }
         }
     }
+
     private void OnDataSourcesSettingsCardClicked(object sender, RoutedEventArgs e)
     {
         DataSources_ShellPage page = new();
-
         TabViewItem tabViewItem = new()
         {
             Header = "数据源设置面板",
@@ -87,7 +84,6 @@ public sealed partial class SettingsPage : Page
     private async void OnChooseBackgroundImageClicked(object sender, RoutedEventArgs e)
     {
         HideBackgroundErrorInfoBar();
-
         var isSuccess = await _backgroundImageService.PickAndSetBackgroundImageAsync();
         if (!isSuccess)
         {
@@ -97,14 +93,12 @@ public sealed partial class SettingsPage : Page
             }
             return;
         }
-
         UpdateBackgroundImageUiState();
     }
 
     private async void OnClearBackgroundImageClicked(object sender, RoutedEventArgs e)
     {
         HideBackgroundErrorInfoBar();
-
         try
         {
             await _backgroundImageService.ClearBackgroundImageAsync();
@@ -123,7 +117,6 @@ public sealed partial class SettingsPage : Page
             UpdateBackgroundImageUiState();
             return;
         }
-
         DispatcherQueue.TryEnqueue(UpdateBackgroundImageUiState);
     }
 
@@ -131,7 +124,6 @@ public sealed partial class SettingsPage : Page
     {
         var imagePath = _backgroundImageService.BackgroundImagePath;
         var hasCustomBackground = !string.IsNullOrWhiteSpace(imagePath);
-
         BackgroundImagePathTextBlock.Text = hasCustomBackground
             ? $"当前：{imagePath}"
             : "当前：默认背景";
@@ -148,5 +140,47 @@ public sealed partial class SettingsPage : Page
     {
         BackgroundErrorInfoBar.IsOpen = false;
         BackgroundErrorInfoBar.Message = string.Empty;
+    }
+
+    /// <summary>
+    /// 打开官网
+    /// </summary>
+    private async void OnOpenWebsiteClicked(object sender, RoutedEventArgs e)
+    {
+        await Launcher.LaunchUriAsync(new Uri("https://railgo.dev/"));
+    }
+
+    /// <summary>
+    /// 打开 RailGo Center
+    /// </summary>
+    private async void OnOpenRailGoCenterClicked(object sender, RoutedEventArgs e)
+    {
+        // 使用 WebView2 嵌入方式（位于系统浏览器打开后）
+        try
+        {
+            await Launcher.LaunchUriAsync(new Uri("https://center.zenglingkun.cn/"));
+        }
+        catch
+        {
+            // 静默处理
+        }
+    }
+
+    /// <summary>
+    /// 加入交流群
+    /// </summary>
+    private async void OnJoinGroupClicked(object sender, RoutedEventArgs e)
+    {
+        await JoinGroupDialog.ShowAsync();
+    }
+
+    /// <summary>
+    /// 复制群号
+    /// </summary>
+    private void OnCopyGroupNumberClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    {
+        var dataPackage = new DataPackage();
+        dataPackage.SetText("652032716");
+        Clipboard.SetContent(dataPackage);
     }
 }

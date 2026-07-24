@@ -1,4 +1,4 @@
-﻿<Page
+<Page
     x:Class="RailGo.Views.Pages.Shell.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -197,20 +197,20 @@
                                     <ButtonModel:FeatureButtonData 
                                     Icon="&#xE707;"
                                     Title="车站信息"
-                                    Description="查询动车组配属和运行交路。"/>
+                                    Description="查询车站基础信息、大屏数据等。"/>
                                 </Button.Content>
                             </Button>
 
-                            <Button x:Name="StationToStationButton" 
+                            <Button x:Name="ToStationToStationButton" 
                                 Command="{x:Bind ViewModel.NavigationCommand}" 
-                                CommandParameter="{x:Bind StationToStationButton.Name}"
+                                CommandParameter="{x:Bind ToStationToStationButton.Name}"
                                 Style="{StaticResource FeatureButtonStyle}"
                                 ContentTemplate="{StaticResource FeatureButtonTemplate}">
                                 <Button.Content>
                                     <ButtonModel:FeatureButtonData 
-                                    Icon="&#xE8AB;"
-                                    Title="车站信息"
-                                    Description="查询动车组配属和运行交路。"/>
+                                    Icon="&#xE80F;"
+                                    Title="站到站车次查询"
+                                    Description="查询两站之间的车次信息。"/>
                                 </Button.Content>
                             </Button>
                         </StackPanel>

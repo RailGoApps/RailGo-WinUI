@@ -136,11 +136,11 @@ public class ApiService
     /// <summary>
     /// 车站大屏数据
     /// </summary>
-    public static async Task<BigScreenData> GetBigScreenDataAsync(bool isOfflineMode, string urlOrDbPath, string stationName)
+    public static async Task<BigScreenData> GetBigScreenDataAsync(bool isOfflineMode, string urlOrDbPath, string stationTelecode)
     {
         if (!isOfflineMode)
         {
-            return await OnlineApiService.GetBigScreenDataAsync(stationName, urlOrDbPath);
+            return await OnlineApiService.GetBigScreenDataAsync(stationTelecode, urlOrDbPath);
         }
         return null;
     }
@@ -225,3 +225,4 @@ public class ApiService
 
     #endregion
 }
+

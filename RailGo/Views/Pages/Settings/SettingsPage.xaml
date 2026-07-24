@@ -10,73 +10,148 @@
     xmlns:ui="using:CommunityToolkit.WinUI"
     mc:Ignorable="d">
     <Grid>
-        <StackPanel x:Name="ContentArea">
-            <InfoBar
-                x:Name="BackgroundErrorInfoBar"
-                IsOpen="False"
-                IsClosable="True"
-                Severity="Error"
-                Title="背景设置失败"
-                Margin="{StaticResource XSmallTopMargin}" />
-            <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
-                <TextBlock Text="数据源设置" Style="{ThemeResource SubtitleTextBlockStyle}" 
+        <ScrollViewer VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="ContentArea">
+                <InfoBar
+                    x:Name="BackgroundErrorInfoBar"
+                    IsOpen="False"
+                    IsClosable="True"
+                    Severity="Error"
+                    Title="背景设置失败"
+                    Margin="{StaticResource XSmallTopMargin}" />
+
+                <!-- 数据源设置 -->
+                <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                    <TextBlock Text="数据源设置" Style="{ThemeResource SubtitleTextBlockStyle}" 
                                Margin="{StaticResource XSmallTopMargin}"/>
-                <controls:SettingsCard x:Name="DataSourcesSettingsCard"
+                    <controls:SettingsCard x:Name="DataSourcesSettingsCard"
                                Click="OnDataSourcesSettingsCardClicked"
                                Description="设置离线数据库，数据源集合，以及第三方数据等"
                                Header="数据源设置"
                                HeaderIcon="{ui:FontIcon Glyph=&#xE8A1;}"
                                IsClickEnabled="True"
                                Margin="{StaticResource XSmallTopMargin}">
-                </controls:SettingsCard>
+                    </controls:SettingsCard>
+                </StackPanel>
+
+                <!-- 个性化 -->
                 <TextBlock x:Uid="Settings_Personalization" Style="{ThemeResource SubtitleTextBlockStyle}" 
-                               Margin="{StaticResource XSmallTopMargin}"/>
-                <controls:SettingsCard
+                           Margin="{StaticResource XSmallTopMargin}"/>
+                <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                    <controls:SettingsCard
                                Description="颜色模式选择，选择浅色，深色，或跟随系统"
                                Header="颜色模式选择"
                                HeaderIcon="{ui:FontIcon Glyph=&#xE793;}"
                                Margin="{StaticResource XSmallTopMargin}">
-                    <ComboBox
-                            x:Name="ThemeComboBox"
-                            Margin="{StaticResource XSmallTopMargin}"
-                            SelectionChanged="ThemeComboBox_SelectionChanged"
-                            FontSize="15">
-                        <ComboBoxItem Content="浅色" Tag="Light" />
-                        <ComboBoxItem Content="深色" Tag="Dark" />
-                        <ComboBoxItem Content="系统默认" Tag="Default" />
-                    </ComboBox>
-                </controls:SettingsCard>
-                <controls:SettingsCard
+                        <ComboBox
+                                x:Name="ThemeComboBox"
+                                Margin="{StaticResource XSmallTopMargin}"
+                                SelectionChanged="ThemeComboBox_SelectionChanged"
+                                FontSize="15">
+                            <ComboBoxItem Content="浅色" Tag="Light" />
+                            <ComboBoxItem Content="深色" Tag="Dark" />
+                            <ComboBoxItem Content="跟随系统" Tag="Default" />
+                        </ComboBox>
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
                                Description="选择本地图片作为软件背景，可随时恢复默认背景"
                                Header="背景图片"
                                HeaderIcon="{ui:FontIcon Glyph=&#xE91B;}"
                                Margin="{StaticResource XSmallTopMargin}">
-                    <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="选择图片" Click="OnChooseBackgroundImageClicked" />
-                            <Button x:Name="ClearBackgroundButton" Content="恢复默认" Click="OnClearBackgroundImageClicked" />
+                        <StackPanel Margin="{StaticResource XSmallTopMargin}" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="选择图片" Click="OnChooseBackgroundImageClicked" />
+                                <Button x:Name="ClearBackgroundButton" Content="恢复默认" Click="OnClearBackgroundImageClicked" />
+                            </StackPanel>
+                            <TextBlock
+                                x:Name="BackgroundImagePathTextBlock"
+                                Text="当前：默认背景"
+                                TextWrapping="WrapWholeWords" />
                         </StackPanel>
-                        <TextBlock
-                            x:Name="BackgroundImagePathTextBlock"
-                            Text="当前：默认背景"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-                </controls:SettingsCard>
+                    </controls:SettingsCard>
+                </StackPanel>
 
+                <!-- 链接与功能 -->
+                <TextBlock Text="链接与功能" Style="{ThemeResource SubtitleTextBlockStyle}" 
+                           Margin="{StaticResource XSmallTopMargin}"/>
+                <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
+                    <controls:SettingsCard
+                               Description="访问 RailGo 官方网站获取更多信息"
+                               Header="打开官网"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE71B;}"
+                               Margin="{StaticResource XSmallTopMargin}"
+                               IsClickEnabled="True"
+                               Click="OnOpenWebsiteClicked">
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                               Description="访问 RailGo Center 管理中心"
+                               Header="RailGo Center"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE8D6;}"
+                               Margin="{StaticResource XSmallTopMargin}"
+                               IsClickEnabled="True"
+                               Click="OnOpenRailGoCenterClicked">
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                               Description="加入官方交流群反馈问题"
+                               Header="加入交流群"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE77B;}"
+                               Margin="{StaticResource XSmallTopMargin}"
+                               IsClickEnabled="True"
+                               Click="OnJoinGroupClicked">
+                    </controls:SettingsCard>
+                </StackPanel>
 
+                <!-- 关于 -->
+                <TextBlock x:Uid="Settings_About" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                <StackPanel Margin="{StaticResource XSmallTopMargin}">
+                    <controls:SettingsCard
+                               Header="版本信息"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE7BE;}"
+                               Margin="{StaticResource XSmallTopMargin}">
+                        <TextBlock Text="{x:Bind ViewModel.VersionDescription, Mode=OneWay}" 
+                                   Style="{ThemeResource BodyTextBlockStyle}" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                               Header="关于 RailGo"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE946;}"
+                               Margin="{StaticResource XSmallTopMargin}">
+                        <StackPanel>
+                            <TextBlock
+                                x:Uid="Settings_AboutDescription"
+                                Margin="{StaticResource XSmallTopMargin}"
+                                Style="{ThemeResource BodyTextBlockStyle}" />
+                            <TextBlock
+                                Text="AZ Studio 版权所有"
+                                Margin="{StaticResource XSmallTopMargin}"
+                                Style="{ThemeResource BodyTextBlockStyle}"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                               Header="隐私政策"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE72E;}"
+                               Margin="{StaticResource XSmallTopMargin}">
+                        <HyperlinkButton x:Uid="SettingsPage_PrivacyTermsLink" />
+                    </controls:SettingsCard>
+                </StackPanel>
             </StackPanel>
+        </ScrollViewer>
 
-            <TextBlock x:Uid="Settings_About" Style="{ThemeResource SubtitleTextBlockStyle}" />
-
-            <StackPanel Margin="{StaticResource XSmallTopMargin}">
-                <TextBlock Text="{x:Bind ViewModel.VersionDescription, Mode=OneWay}" Style="{ThemeResource BodyTextBlockStyle}" />
-
-                <TextBlock
-                    x:Uid="Settings_AboutDescription"
-                    Margin="{StaticResource XSmallTopMargin}"
-                    Style="{ThemeResource BodyTextBlockStyle}" />
-                <HyperlinkButton x:Uid="SettingsPage_PrivacyTermsLink" Margin="{StaticResource SettingsPageHyperlinkButtonMargin}" />
+        <!-- 加入交流群对话框 -->
+        <ContentDialog x:Name="JoinGroupDialog"
+                       Title="加入交流群"
+                       CloseButtonText="关闭"
+                       PrimaryButtonText="复制群号"
+                       PrimaryButtonClick="OnCopyGroupNumberClicked">
+            <StackPanel>
+                <TextBlock TextWrapping="WrapWholeWords" Margin="0,0,0,12">
+                    复制群号加入群聊【RailGo 官方反馈 | 重拳出击盗版中】652032716
+                </TextBlock>
+                <TextBlock Text="群号：652032716" 
+                           FontWeight="Bold"
+                           FontSize="18"
+                           HorizontalAlignment="Center"/>
             </StackPanel>
-        </StackPanel>
+        </ContentDialog>
     </Grid>
 </Page>

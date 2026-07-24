@@ -1,14 +1,25 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using RailGo.Core.Helpers;
 using RailGo.Core.Models;
 using RailGo.Core.Models.QueryDatas;
+using RailGo.Core.Models.Settings;
 
 namespace RailGo.Core.Query.Online;
 
 public class OnlineApiService
 {
+    #region V2 API 通用方法
+
+    private static async Task<T> GetV2Async<T>(string url)
+    {
+        var response = await HttpService.GetAsync<V2ApiResponse<T>>(url);
+        return response.Data;
+    }
+
+    #endregion
+
     #region 车次查询接口
 
     public static async Task<ObservableCollection<string>> TrainPreselectAsync(string keyword, string url)
@@ -35,15 +46,20 @@ public class OnlineApiService
         return await HttpService.GetAsync<ObservableCollection<StationPreselectResult>>($"{url}?keyword={System.Net.WebUtility.UrlEncode(keyword)}");
     }
 
+    /// <summary>
+    /// 车站详情查询 (参数: telecode=车站电报码)
+    /// </summary>
     public static async Task<StationQueryResponse> StationQueryAsync(string telecode, string url)
     {
         return await HttpService.GetAsync<StationQueryResponse>($"{url}?telecode={telecode}");
     }
 
-    public static async Task<BigScreenData> GetBigScreenDataAsync(string stationName, string url)
+    /// <summary>
+    /// 车站大屏数据 (V2 API: stationTelecode=电报码, kind=departure/arrival)
+    /// </summary>
+    public static async Task<BigScreenData> GetBigScreenDataAsync(string stationTelecode, string url, string kind = "departure")
     {
-        var nameWithoutSuffix = stationName.Replace("站", "");
-        return await HttpService.GetAsync<BigScreenData>($"{url}/station/{System.Net.WebUtility.UrlEncode(nameWithoutSuffix)}");
+        return await HttpService.GetAsync<BigScreenData>($"{url}?stationTelecode={stationTelecode}&kind={kind}");
     }
 
     #endregion
@@ -52,7 +68,7 @@ public class OnlineApiService
 
     public static async Task<ObservableCollection<EmuOperation>> EmuQueryAsync(string type, string keyword, string url)
     {
-        return await HttpService.GetAsync<ObservableCollection<EmuOperation>>($"{url}/{type}/{System.Net.WebUtility.UrlEncode(keyword)}");
+        return await HttpService.GetAsync<ObservableCollection<EmuOperation>>($"{url}/{System.Net.WebUtility.UrlEncode(keyword)}");
     }
 
     public static async Task<ObservableCollection<EmuAssignment>> EmuAssignmentQueryAsync(string type, string keyword, int cursor, int count, string url)
@@ -74,29 +90,26 @@ public class OnlineApiService
 
     #region 实时数据接口
 
+    /// <summary>
+    /// 正晚点查询 (V2 API: GET /api/v2/getTrainDelay)
+    /// </summary>
     public static async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string date, string trainNumber, string fromStation, string toStation, string url)
     {
-        // 创建表单数据字典
-        var formData = new Dictionary<string, string>
-        {
-            { "date", date },
-            { "trainNumber", trainNumber },
-            { "fromStationName", fromStation },
-            { "toStationName", toStation }
-        };
-
-        var delayResponse = await HttpService.PostFormAsync<DelayResponse>(url, formData);
         var result = new ObservableCollection<DelayInfo>();
-
-        if (delayResponse?.Data != null)
+        try
         {
-            // 将数据添加到 ObservableCollection
-            foreach (var item in delayResponse.Data)
+            var delayData = await GetV2Async<List<DelayInfo>>($"{url}?trainNum={System.Net.WebUtility.UrlEncode(trainNumber)}&stationTelecode={System.Net.WebUtility.UrlEncode(fromStation)}&date={date}");
+            if (delayData != null)
             {
-                result.Add(item);
+                foreach (var item in delayData)
+                {
+                    result.Add(item);
+                }
             }
         }
-
+        catch
+        {
+        }
         return result;
     }
 
@@ -109,7 +122,6 @@ public class OnlineApiService
             type,
             stationTrainCode
         };
-
         return await HttpService.PostAsync<PlatformInfo>(url, data);
     }
 
