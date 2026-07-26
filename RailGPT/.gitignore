@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+hf_cache/
+memory_store/
+conversations/
+build/
+dist/
+release/
+RailGPT.Runtime.exe
+runtime/

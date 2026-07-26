@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Packaging / release build
+pyinstaller==6.19.0

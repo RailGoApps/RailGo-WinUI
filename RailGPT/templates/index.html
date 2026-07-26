@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ window_title }}</title>
+  <link rel="icon" type="image/x-icon" href="{{ favicon_url }}" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" id="hljs-theme"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body class="{% if embedded %}embedded{% endif %}">
+  <!-- Window frame — provides rounded corners + border ring for pywebview frameless mode -->
+  <div id="window-frame">
+
+  <!-- Custom title bar — only shown inside pywebview (frameless window) -->
+  <div id="titlebar" class="titlebar hidden">
+    <div class="titlebar-drag">
+      <img class="titlebar-icon titlebar-icon-image" src="{{ favicon_url }}" alt="{{ app_name }}" />
+      <span class="titlebar-title">{{ app_name }}</span>
+    </div>
+    <div class="titlebar-controls">
+      <!-- Minimize -->
+      <button class="tb-btn tb-min" id="tb-min" title="最小化">
+        <svg viewBox="0 0 12 12" fill="none">
+          <line x1="1" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <!-- Maximize / Restore -->
+      <button class="tb-btn tb-max" id="tb-max" title="最大化">
+        <!-- maximize icon (visible by default) -->
+        <svg id="tb-max-icon" viewBox="0 0 12 12" fill="none">
+          <rect x="1.5" y="1.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+        </svg>
+        <!-- restore icon (hidden by default) -->
+        <svg id="tb-restore-icon" class="tb-icon-out" viewBox="0 0 12 12" fill="none">
+          <rect x="3.5" y="1.5" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
+          <rect x="1.5" y="3.5" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="1.3" fill="var(--bg-titlebar,#1e1e2e)"/>
+        </svg>
+      </button>
+      <!-- Close -->
+      <button class="tb-btn tb-close" id="tb-close" title="关闭">
+        <svg viewBox="0 0 12 12" fill="none">
+          <line x1="1.5" y1="1.5" x2="10.5" y2="10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="10.5" y1="1.5" x2="1.5" y2="10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="app">
+
+    <!-- =================== LEFT SIDEBAR =================== -->
+    <aside id="sidebar">
+
+      <!-- Top bar: brand + search + collapse toggle -->
+      <div class="sidebar-topbar">
+        <span class="sidebar-brand">RailGPT</span>
+        <div class="sidebar-topbar-actions">
+          <button id="sidebar-search-btn" class="panel-toggle-btn" title="搜索对话">
+            <svg viewBox="0 0 20 20" fill="none">
+              <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="12.5" y1="12.5" x2="17" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button id="sidebar-collapse-btn" class="panel-toggle-btn" title="折叠侧栏">
+            <!-- Collapse icon (shown when expanded) -->
+            <svg class="icon-collapse" viewBox="0 0 20 20" fill="none">
+              <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="8" y1="3" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M5.5 10 L6.5 9 L5.5 8" stroke="currentColor" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <!-- Expand icon (shown when collapsed) -->
+            <svg class="icon-expand" viewBox="0 0 20 20" fill="none">
+              <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="8" y1="3" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M5.5 9 L6.5 10 L5.5 11" stroke="currentColor" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search panel -->
+      <div id="search-panel" class="search-panel hidden">
+        <div class="search-input-wrap">
+          <svg class="search-icon" viewBox="0 0 16 16" fill="none">
+            <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.4"/>
+            <line x1="9.5" y1="9.5" x2="13.5" y2="13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <input id="search-input" type="text" placeholder="搜索对话…" autocomplete="off" spellcheck="false"/>
+          <button id="search-clear-btn" class="search-clear-btn" title="清除">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="search-scope-bar">
+          <button class="scope-btn active" data-scope="title">仅标题</button>
+          <button class="scope-btn" data-scope="content">含内容</button>
+        </div>
+        <div id="search-results" class="search-results"></div>
+      </div>
+
+      <!-- New chat button -->
+      <div class="sidebar-new-wrap">
+        <button id="btn-new-chat" class="btn-new-chat" title="新建对话">
+          <svg viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/>
+          </svg>
+          <span class="btn-label">新建对话</span>
+        </button>
+      </div>
+
+      <!-- Conversation list -->
+      <div id="conv-list" class="conv-list"></div>
+
+      <!-- Sidebar footer buttons -->
+      <div class="sidebar-footer">
+        <button id="btn-settings" class="sidebar-footer-btn" title="设置">
+          <svg viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M11.983 1.904a1 1 0 00-1.966 0l-.155 1.55a6.982 6.982 0 00-1.518.63L6.99 3.22a1 1 0 00-1.39.26L4.617 4.94a1 1 0 00.26 1.39l1.272.85a7.032 7.032 0 000 1.638l-1.272.85a1 1 0 00-.26 1.39l.983 1.46a1 1 0 001.39.26l1.354-.904c.473.268.98.48 1.518.63l.155 1.55a1 1 0 001.966 0l.155-1.55a6.982 6.982 0 001.518-.63l1.354.904a1 1 0 001.39-.26l.983-1.46a1 1 0 00-.26-1.39l-1.272-.85a7.032 7.032 0 000-1.638l1.272-.85a1 1 0 00.26-1.39l-.983-1.46a1 1 0 00-1.39-.26l-1.354.904a6.982 6.982 0 00-1.518-.63l-.155-1.55zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+          </svg>
+          <span class="btn-label">设置</span>
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- =================== MAIN AREA =================== -->
+    <main id="main">
+
+      <!-- Toolbar -->
+      <header id="toolbar">
+        <div class="toolbar-title">
+          <span class="app-name">{{ app_name }} <span class="app-version">v{{ app_version }}</span></span>
+          <span id="mode-caption" class="app-caption">Railway Knowledge + Fast Coordination · Final: Chat</span>
+          <nav class="data-source-bar" aria-label="RailGPT 数据服务">
+            <span class="data-source-label">数据服务：</span>
+            <a href="https://railgo.dev" target="_blank" rel="noopener noreferrer"
+               title="RailGo：铁路运行图与运营信息服务">RailGo</a>
+            <span aria-hidden="true">·</span>
+            <a href="https://rail.re" target="_blank" rel="noopener noreferrer"
+               title="rail.re：动车组担当与运用记录">rail.re</a>
+            <span aria-hidden="true">·</span>
+            <a href="https://www.12306.cn/" target="_blank" rel="noopener noreferrer"
+               title="中国铁路12306：官方余票与客运服务">中国铁路12306</a>
+            <span class="data-source-adaptive">· 按问题动态选用</span>
+          </nav>
+        </div>
+
+        <div class="toolbar-controls">
+          <!-- Mode selector -->
+          <div class="mode-selector">
+            <span class="control-label">模式</span>
+            <div class="seg-control" id="mode-seg">
+              <button class="seg-btn active" data-mode="fast-go">FAST-GO</button>
+              <button class="seg-btn" data-mode="fast-plus">FAST-PLUS</button>
+              <button class="seg-btn" data-mode="deep">DEEP</button>
+            </div>
+          </div>
+
+          <!-- Theme selector (dropdown) -->
+          <div class="theme-selector" id="theme-selector">
+            <button class="theme-trigger" id="theme-btn" title="切换主题">
+              <svg viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clip-rule="evenodd"/>
+              </svg>
+              <span id="theme-label">白天</span>
+              <svg class="chevron" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+            <div class="theme-dropdown" id="theme-dropdown">
+              <button class="theme-option active" data-theme="light">
+                <span class="theme-swatch" style="background:#f1f5f9;border:1px solid #cbd5e1;"></span>
+                白天
+              </button>
+              <button class="theme-option" data-theme="dark">
+                <span class="theme-swatch" style="background:#161b22;border:1px solid #30363d;"></span>
+                夜间
+              </button>
+              <button class="theme-option" data-theme="high-contrast">
+                <span class="theme-swatch" style="background:#000;border:1px solid #fff;"></span>
+                高对比
+              </button>
+              <button class="theme-option" data-theme="colorful">
+                <span class="theme-swatch"
+                      style="background:linear-gradient(135deg,#7c3aed 50%,#10b981 50%);"></span>
+                鲜艳多彩
+              </button>
+              <!-- Hue picker row — only visible when colorful theme is active -->
+              <div class="hue-picker-row hidden" id="hue-picker-row">
+                <span class="hue-label">色调</span>
+                <input type="range" id="hue-slider" min="0" max="359" value="270" />
+                <span id="hue-preview" class="hue-preview-dot"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Chat area -->
+      <div id="chat-area">
+
+        <!-- Home panel -->
+        <div id="home-panel">
+          <div class="home-icon">
+            <!-- EMU / High-speed train side-view -->
+            <svg viewBox="0 0 80 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Rail -->
+              <line x1="2" y1="36" x2="78" y2="36" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
+              <!-- Wheels -->
+              <circle cx="16" cy="34" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="30" cy="34" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="50" cy="34" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="64" cy="34" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+              <!-- Main body -->
+              <path d="M6 30 L6 16 Q6 12 10 12 L58 12 Q64 12 68 16 Q72 20 73 26 L73 30 Z"
+                    fill="currentColor" opacity="0.15" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              <!-- Nose (streamlined front) -->
+              <path d="M68 16 Q74 18 76 24 L76 30 L73 30 L73 26 Q72 20 68 16 Z"
+                    fill="currentColor" opacity="0.25" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+              <!-- Windows -->
+              <rect x="12" y="16" width="8" height="6" rx="1.5" fill="currentColor" opacity="0.6"/>
+              <rect x="24" y="16" width="8" height="6" rx="1.5" fill="currentColor" opacity="0.6"/>
+              <rect x="36" y="16" width="8" height="6" rx="1.5" fill="currentColor" opacity="0.6"/>
+              <rect x="48" y="16" width="8" height="6" rx="1.5" fill="currentColor" opacity="0.6"/>
+              <!-- Front window -->
+              <path d="M68 17 Q72 19 73.5 24 L73.5 28 L68 28 Z"
+                    fill="currentColor" opacity="0.5"/>
+              <!-- Stripe -->
+              <line x1="6" y1="24" x2="73" y2="24" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+            </svg>
+          </div>
+          <h1 class="home-title">{{ app_name }}</h1>
+          <p class="home-subtitle">铁路智能体 · 实时查询 · 智能规划</p>
+          <div class="suggestions" id="suggestions"></div>
+        </div>
+
+        <!-- Messages container -->
+        <div id="messages" class="messages hidden"></div>
+
+      </div>
+
+      <!-- Input area -->
+      <div id="input-area">
+        <div id="api-lock-banner" class="api-lock-banner hidden">
+          <div class="api-lock-copy">
+            <strong>还没配置主对话 API Key</strong>
+            <span>先去设置里填写主对话 API Key，配置完成后就能正常发问。Thinker key 可以单独配置，不填时会自动复用主 key。</span>
+          </div>
+          <button id="api-lock-open-settings" class="btn-secondary">打开设置</button>
+        </div>
+
+        <!-- Quick fill popup -->
+        <div id="quick-fill-popup" class="qf-popup hidden">
+          <div class="qf-layout">
+            <!-- Left: function list -->
+            <div class="qf-fn-panel">
+              <div class="qf-fn-group">两站间</div>
+              <button class="qf-fn-btn active" data-qtype="listing">班次列表</button>
+              <button class="qf-fn-btn" data-qtype="benchmark">最快方案</button>
+              <button class="qf-fn-btn" data-qtype="ticket">余票查询</button>
+              <button class="qf-fn-btn" data-qtype="transfer">中转方案</button>
+              <div class="qf-fn-sep"></div>
+              <div class="qf-fn-group">车次</div>
+              <button class="qf-fn-btn" data-qtype="train-overview">车次概览</button>
+              <button class="qf-fn-btn" data-qtype="train-path">经停时刻</button>
+              <button class="qf-fn-btn" data-qtype="train-assign">动车组</button>
+              <button class="qf-fn-btn" data-qtype="train-stop">停站查询</button>
+            </div>
+            <!-- Right: tabs + fields -->
+            <div class="qf-right-panel">
+              <div class="qf-tabs">
+                <button class="qf-tab active" data-tab="route">地点</button>
+                <button class="qf-tab" data-tab="train">班次</button>
+              </div>
+              <div id="qf-tab-route" class="qf-tab-content">
+                <div class="qf-geo-bar" id="qf-geo-bar">
+                  <svg class="qf-geo-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="8" cy="7" r="2.5"/><path d="M8 1C5.24 1 3 3.24 3 7c0 3.5 5 8 5 8s5-4.5 5-8c0-3.76-2.24-6-5-6z"/>
+                  </svg>
+                  <span id="qf-geo-text"><a id="qf-geo-trigger" href="#">获取当前城市</a></span>
+                </div>
+                <div class="qf-field-row">
+                  <label class="qf-field-label">出发站</label>
+                  <div class="qf-field-with-btn">
+                    <input class="qf-field-input" id="qf-dep" type="text" placeholder="如 北京南、上海虹桥"/>
+                    <button class="btn-loc-fill" data-target="qf-dep" id="btn-loc-dep" title="填入当前城市" disabled>
+                      <svg viewBox="0 0 16 16" fill="currentColor" stroke="none">
+                        <circle cx="8" cy="7" r="2.2"/><path d="M8 1C5.24 1 3 3.24 3 7c0 3.5 5 8 5 8s5-4.5 5-8c0-3.76-2.24-6-5-6z" opacity=".35"/><circle cx="8" cy="7" r="2.2"/>
+                      </svg>
+                    </button>
+                    <button class="btn-city-pick" data-target="qf-dep" title="选择城市/站点">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="7" cy="6" r="3.5"/><line x1="9.5" y1="8.5" x2="13" y2="12"/>
+                        <line x1="5.5" y1="6" x2="8.5" y2="6"/><line x1="7" y1="4.5" x2="7" y2="7.5"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="qf-field-row">
+                  <label class="qf-field-label">到达站</label>
+                  <div class="qf-field-with-btn">
+                    <input class="qf-field-input" id="qf-arr" type="text" placeholder="如 广州南、杭州东"/>
+                    <button class="btn-loc-fill" data-target="qf-arr" id="btn-loc-arr" title="填入当前城市" disabled>
+                      <svg viewBox="0 0 16 16" fill="currentColor" stroke="none">
+                        <circle cx="8" cy="7" r="2.2"/><path d="M8 1C5.24 1 3 3.24 3 7c0 3.5 5 8 5 8s5-4.5 5-8c0-3.76-2.24-6-5-6z" opacity=".35"/><circle cx="8" cy="7" r="2.2"/>
+                      </svg>
+                    </button>
+                    <button class="btn-city-pick" data-target="qf-arr" title="选择城市/站点">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="7" cy="6" r="3.5"/><line x1="9.5" y1="8.5" x2="13" y2="12"/>
+                        <line x1="5.5" y1="6" x2="8.5" y2="6"/><line x1="7" y1="4.5" x2="7" y2="7.5"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="qf-field-row">
+                  <label class="qf-field-label">日期</label>
+                  <input class="qf-field-input" id="qf-route-date" type="date"/>
+                </div>
+              </div>
+              <div id="qf-tab-train" class="qf-tab-content hidden">
+                <div class="qf-field-row">
+                  <label class="qf-field-label">车次号</label>
+                  <input class="qf-field-input" id="qf-train-no" type="text" placeholder="如 G1、D301、K22"/>
+                </div>
+                <div class="qf-field-row">
+                  <label class="qf-field-label">日期</label>
+                  <input class="qf-field-input" id="qf-train-date" type="date"/>
+                </div>
+              </div>
+              <button id="qf-fill-btn" class="qf-fill-btn">填入问题</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-card">
+          <textarea id="chat-input"
+            placeholder="输入铁路问题… Enter 换行，Ctrl+Enter 发送"
+            rows="1"></textarea>
+          <div class="input-actions">
+            <button id="quick-fill-btn" class="btn-quick-fill" title="快捷查询">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="8" y1="3" x2="8" y2="13"/>
+                <line x1="3" y1="8" x2="13" y2="8"/>
+              </svg>
+            </button>
+            <span class="input-actions-spacer"></span>
+            <button id="send-btn" class="btn-send" title="发送 (Ctrl+Enter)">
+              <svg viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <p class="input-hint">Ctrl+Enter 发送 &nbsp;·&nbsp; Enter 换行</p>
+      </div>
+
+    </main>
+
+    <!-- =================== RIGHT OBSERVER PANEL =================== -->
+    <aside id="observer">
+
+      <!-- Top bar: title + tabs + collapse toggle -->
+      <div class="observer-topbar">
+        <div class="observer-topbar-left">
+          <span class="observer-title">Observer</span>
+          <div class="seg-control" id="observer-seg">
+            <button class="seg-btn active" data-panel="thinking">思考</button>
+            <button class="seg-btn" data-panel="psw">调试</button>
+          </div>
+        </div>
+        <button id="observer-collapse-btn" class="panel-toggle-btn" title="折叠面板">
+          <!-- Collapse icon (shown when expanded) -->
+          <svg class="icon-collapse" viewBox="0 0 20 20" fill="none">
+            <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="12" y1="3" x2="12" y2="17" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M14.5 10 L13.5 9 L14.5 8" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <!-- Expand icon (shown when collapsed) -->
+          <svg class="icon-expand" viewBox="0 0 20 20" fill="none">
+            <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="12" y1="3" x2="12" y2="17" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M14.5 9 L13.5 10 L14.5 11" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <p class="observer-caption">思考流与调试日志实时展示</p>
+
+      <div id="thinking-panel" class="observer-content thinking-content">
+        <div id="thinking-text" class="thinking-text"></div>
+      </div>
+      <div id="psw-panel" class="observer-content psw-content hidden">
+        <pre id="psw-log" class="psw-log"></pre>
+      </div>
+
+    </aside>
+
+  </div><!-- #app -->
+
+  </div><!-- #window-frame -->
+
+  <!-- Settings dialog -->
+  <div id="settings-dialog" class="dialog-overlay hidden">
+    <div class="dialog settings-dialog">
+      <div class="settings-dialog-header">
+        <div>
+          <h3>设置</h3>
+          <p class="settings-dialog-subtitle">管理账号预留位、API 配置以及 RailGPT 说明。</p>
+        </div>
+        <button id="settings-close" class="about-close-btn" title="关闭">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="settings-dialog-body">
+        <aside class="settings-tabs">
+          <button id="settings-tab-account" class="settings-tab active" data-settings-tab="account">Account</button>
+          <button id="settings-tab-api" class="settings-tab" data-settings-tab="api">API</button>
+          <button id="settings-tab-about" class="settings-tab" data-settings-tab="about">About</button>
+        </aside>
+        <section class="settings-panel-wrap">
+          <div id="settings-panel-account" class="settings-panel">
+            <div class="settings-card">
+              <h4>账号预留</h4>
+              <p id="account-status-title" class="settings-emphasis">未登录</p>
+              <p id="account-status-desc" class="settings-muted">账号与云同步功能预留中，后续服务器化版本会接入。</p>
+            </div>
+          </div>
+
+          <div id="settings-panel-api" class="settings-panel hidden">
+            <div class="settings-card">
+              <h4>Provider</h4>
+              <label class="settings-field-label" for="settings-provider-btn">API 服务商</label>
+              <div class="theme-selector settings-provider-selector" id="settings-provider-selector">
+                <button id="settings-provider-btn" type="button" class="theme-trigger settings-provider-trigger" title="选择 API 服务商">
+                  <div class="settings-provider-trigger-copy">
+                    <span id="settings-provider-label">DeepSeek</span>
+                    <span id="settings-provider-desc" class="settings-provider-desc">DeepSeek API（OpenAI 兼容请求格式）</span>
+                  </div>
+                  <svg class="chevron" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                  </svg>
+                </button>
+                <div id="settings-provider-dropdown" class="theme-dropdown settings-provider-dropdown"></div>
+              </div>
+              <input id="settings-provider-select" type="hidden" value="deepseek"/>
+              <p class="settings-muted">首版仅开放固定预设 provider，不开放自定义 Base URL。</p>
+            </div>
+
+            <div class="settings-card">
+              <h4>主对话 API Key</h4>
+              <p id="settings-primary-key-status" class="settings-muted">未配置</p>
+              <input id="settings-primary-key-input" class="settings-input" type="password" placeholder="输入主对话 API Key" autocomplete="off" spellcheck="false"/>
+              <div class="settings-actions">
+                <button id="settings-save-primary" class="btn-primary-sm">保存主对话 Key</button>
+                <button id="settings-delete-primary" class="btn-secondary">删除主对话 Key</button>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <h4>Thinker API Key</h4>
+              <p id="settings-thinking-key-status" class="settings-muted">未配置，将自动复用主对话 Key。</p>
+              <input id="settings-thinking-key-input" class="settings-input" type="password" placeholder="输入 Thinker 专用 API Key（可选）" autocomplete="off" spellcheck="false"/>
+              <div class="settings-actions">
+                <button id="settings-save-thinking" class="btn-primary-sm">保存 Thinker Key</button>
+                <button id="settings-delete-thinking" class="btn-secondary">删除 Thinker Key</button>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <h4>配置文件位置</h4>
+              <code id="settings-config-path" class="settings-path">加载中…</code>
+            </div>
+
+            <div id="settings-api-feedback" class="settings-feedback hidden"></div>
+          </div>
+
+          <div id="settings-panel-about" class="settings-panel hidden">
+            <div id="about-content" class="about-content"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rename dialog -->
+  <div id="rename-dialog" class="dialog-overlay hidden">
+    <div class="dialog">
+      <h3>重命名对话</h3>
+      <input type="text" id="rename-input" placeholder="新标题…" />
+      <div class="dialog-actions">
+        <button id="rename-cancel" class="btn-secondary">取消</button>
+        <button id="rename-confirm" class="btn-primary-sm">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- City picker popup (fixed, shared for dep/arr) -->
+  <div id="city-picker" class="city-picker hidden">
+    <div class="cp-header">
+      <button id="cp-back-btn" class="cp-back-btn cp-hidden-btn">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 3 L5 8 L10 13"/></svg>
+        返回
+      </button>
+      <span id="cp-breadcrumb" class="cp-breadcrumb">选择城市</span>
+      <button id="cp-close-btn" class="cp-close-btn" title="关闭">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+      </button>
+    </div>
+    <div id="cp-content" class="cp-content">
+      <div class="cp-loading">加载中…</div>
+    </div>
+    <div id="cp-footer" class="cp-footer hidden">
+      <button id="cp-confirm-btn" class="cp-confirm-btn">确认</button>
+    </div>
+  </div>
+
+  <script src="/static/vendor/leaflet/leaflet.js"></script>
+  <script src="/static/js/app.js"></script>
+
+  <!-- pywebview: titlebar init + JS-based edge resize (fallback for drag) -->
+  <script>
+    (function () {
+      function _init() {
+        var bar = document.getElementById('titlebar');
+        if (!bar) return;
+        bar.classList.remove('hidden');
+
+        var api = window.pywebview && window.pywebview.api;
+        if (!api) return;
+
+        /* Window control buttons */
+        document.getElementById('tb-min').addEventListener('click', function () { api.minimize(); });
+        document.getElementById('tb-close').addEventListener('click', function () { api.close(); });
+
+        var _maximized = false;
+        var tbMaxBtn       = document.getElementById('tb-max');
+        var tbMaxIcon      = document.getElementById('tb-max-icon');
+        var tbRestoreIcon  = document.getElementById('tb-restore-icon');
+        function _updateMaxIcon() {
+          if (_maximized) {
+            tbMaxIcon.classList.add('tb-icon-out');
+            tbRestoreIcon.classList.remove('tb-icon-out');
+            tbMaxBtn.title = '还原';
+          } else {
+            tbMaxIcon.classList.remove('tb-icon-out');
+            tbRestoreIcon.classList.add('tb-icon-out');
+            tbMaxBtn.title = '最大化';
+          }
+        }
+        tbMaxBtn.addEventListener('click', function () {
+          _maximized = !_maximized;
+          _updateMaxIcon();
+          api.toggle_maximize();
+        });
+
+        /* ── Titlebar drag ────────────────────────────────────────────
+           preventDefault + stopPropagation + capture:true prevent WebView2
+           from taking mouse capture on mousedown, so ReleaseCapture() in
+           Python leaves capture free for DefWindowProc's move loop.       */
+        var dragZone = bar.querySelector('.titlebar-drag');
+        if (dragZone) {
+          dragZone.addEventListener('mousedown', function (e) {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            api.start_drag();
+          }, true);   // capture phase — same as resize handler
+        }
+
+        /* ── Edge resize ──────────────────────────────────────────────
+           WebView2 covers the entire window, so we detect near-edge
+           positions in JS and call api.start_resize() which posts
+           WM_NCLBUTTONDOWN(HTLEFT/…) directly to the Win32 Form.
+           The Form + WS_THICKFRAME honours these messages natively.    */
+        var EDGE = 8;   // px from window boundary
+        var CURSORS = {
+          w:'w-resize', e:'e-resize', n:'n-resize', s:'s-resize',
+          nw:'nw-resize', ne:'ne-resize', sw:'sw-resize', se:'se-resize'
+        };
+
+        function _dir(e) {
+          var x = e.clientX, y = e.clientY;
+          var w = window.innerWidth, h = window.innerHeight;
+          var L = x < EDGE, R = x > w - EDGE, T = y < EDGE, B = y > h - EDGE;
+          if (T && L) return 'nw'; if (T && R) return 'ne';
+          if (B && L) return 'sw'; if (B && R) return 'se';
+          if (T) return 'n';       if (B) return 's';
+          if (L) return 'w';       if (R) return 'e';
+          return '';
+        }
+
+        document.addEventListener('mousemove', function (e) {
+          var d = _dir(e);
+          document.documentElement.style.cursor = CURSORS[d] || '';
+        });
+
+        document.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          var d = _dir(e);
+          if (!d) return;
+          e.preventDefault();
+          e.stopPropagation();
+          api.start_resize(d);
+        }, true);   // capture phase — fires before child handlers
+      }
+
+      if (window.pywebview && window.pywebview.api) {
+        _init();
+      } else {
+        window.addEventListener('pywebviewready', _init);
+      }
+    })();
+  </script>
+</body>
+</html>
