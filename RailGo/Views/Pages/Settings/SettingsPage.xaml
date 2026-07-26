@@ -22,7 +22,7 @@
 
                 <!-- 数据源设置 -->
                 <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
-                    <TextBlock Text="数据源设置" Style="{ThemeResource SubtitleTextBlockStyle}" 
+                    <TextBlock Text="数据源设置" Style="{ThemeResource SubtitleTextBlockStyle}"
                                Margin="{StaticResource XSmallTopMargin}"/>
                     <controls:SettingsCard x:Name="DataSourcesSettingsCard"
                                Click="OnDataSourcesSettingsCardClicked"
@@ -31,6 +31,83 @@
                                HeaderIcon="{ui:FontIcon Glyph=&#xE8A1;}"
                                IsClickEnabled="True"
                                Margin="{StaticResource XSmallTopMargin}">
+                    </controls:SettingsCard>
+                </StackPanel>
+
+                <!-- RailGPT API 设置 -->
+                <TextBlock Text="RailGPT API 设置" Style="{ThemeResource SubtitleTextBlockStyle}"
+                           Margin="{StaticResource XSmallTopMargin}"/>
+                <StackPanel Margin="{StaticResource SmallTopBottomMargin}" Spacing="4">
+                    <!-- Status -->
+                    <InfoBar x:Name="AISettingsInfoBar"
+                             IsOpen="False"
+                             IsClosable="True"
+                             Severity="Informational"
+                             Margin="{StaticResource XSmallTopMargin}" />
+
+                    <controls:SettingsCard
+                               Description="选择 AI 服务提供商"
+                               Header="服务提供商"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE943;}"
+                               Margin="{StaticResource XSmallTopMargin}">
+                        <ComboBox x:Name="ProviderComboBox"
+                                  MinWidth="200"
+                                  SelectionChanged="ProviderComboBox_SelectionChanged"
+                                  FontSize="14">
+                            <ComboBoxItem Content="DeepSeek" Tag="deepseek" />
+                        </ComboBox>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                               Description="用于对话生成的 API Key（必填）"
+                               Header="主对话 API Key"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE72E;}"
+                               Margin="{StaticResource XSmallTopMargin}">
+                        <StackPanel Spacing="8" MinWidth="280">
+                            <PasswordBox x:Name="PrimaryApiKeyBox"
+                                         PlaceholderText="输入 API Key (sk-...)"
+                                         FontSize="14" />
+                            <TextBlock x:Name="PrimaryKeyStatus"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Text="未配置" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button x:Name="SavePrimaryKeyBtn" Content="保存主对话 Key" Click="OnSavePrimaryKeyClicked" />
+                                <Button x:Name="ClearPrimaryKeyBtn" Content="删除" Click="OnClearPrimaryKeyClicked" />
+                            </StackPanel>
+                        </StackPanel>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                               Description="用于深度思考模式的 API Key（选填，不填时复用主对话 Key）"
+                               Header="Thinker API Key"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE7BE;}"
+                               Margin="{StaticResource XSmallTopMargin}">
+                        <StackPanel Spacing="8" MinWidth="280">
+                            <PasswordBox x:Name="ThinkingApiKeyBox"
+                                         PlaceholderText="输入 Thinker API Key（可选）"
+                                         FontSize="14" />
+                            <TextBlock x:Name="ThinkingKeyStatus"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Text="未配置，将自动复用主对话 Key" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button x:Name="SaveThinkingKeyBtn" Content="保存 Thinker Key" Click="OnSaveThinkingKeyClicked" />
+                                <Button x:Name="ClearThinkingKeyBtn" Content="删除" Click="OnClearThinkingKeyClicked" />
+                            </StackPanel>
+                        </StackPanel>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                               Description="加密存储位置"
+                               Header="配置文件"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE8A5;}"
+                               Margin="{StaticResource XSmallTopMargin}">
+                        <TextBlock x:Name="ConfigPathText"
+                                   Text="%APPDATA%/RailGPT/settings.enc"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </controls:SettingsCard>
                 </StackPanel>
 

@@ -22,12 +22,15 @@ using RailGo.ViewModels.Pages.Settings.DataSources;
 using RailGo.ViewModels.Pages.Shell;
 using RailGo.ViewModels.Pages.Stations;
 using RailGo.ViewModels.Pages.StationToStation;
+using RailGo.AI.Services;
+using RailGo.ViewModels.Pages.Chat;
 using RailGo.ViewModels.Pages.TrainEmus;
 using RailGo.ViewModels.Pages.Trains;
 using RailGo.ViewModels.Windows;
 using RailGo.Views;
 using RailGo.Views.Windows;
 using RailGo.Views.ContentDialogs;
+using RailGo.Views.Pages.Chat;
 using RailGo.Views.Pages.Settings;
 using RailGo.Views.Pages.Settings.DataSources;
 using RailGo.Views.Pages.Shell;
@@ -142,6 +145,14 @@ public partial class App : Application
             services.AddTransient<DataSources_ThirdPartyApiServicesPage>();
             services.AddTransient<DataSources_ThirdPartyDatabasesPage>();
 
+            // AI Services (RailGPT integration)
+            services.AddSingleton<HttpClient>();
+            services.AddSingleton<IPythonProcessManager, PythonProcessManager>();
+            services.AddSingleton<IAIChatClient, AIChatClient>();
+            services.AddSingleton<AISettingsService>();
+            services.AddTransient<ChatViewModel>();
+            services.AddTransient<ChatPage>();
+
             // Configuration
             services.Configure<LocalSettingsOptions>(context.Configuration.GetSection(nameof(LocalSettingsOptions)));
         }).
@@ -181,6 +192,20 @@ public partial class App : Application
         DataSourcesShell.CheckAvailableModes();
 
         base.OnLaunched(args);
+
+        // Start RailGPT Python backend in background (non-blocking)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var processManager = App.GetService<IPythonProcessManager>();
+                await processManager.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"RailGPT backend startup failed: {ex.Message}");
+            }
+        });
         // App.GetService<IAppNotificationService>().Show(string.Format("AppNotificationSamplePayload".GetLocalized(), AppContext.BaseDirectory));
         await App.GetService<IActivationService>().ActivateAsync(args);
     }

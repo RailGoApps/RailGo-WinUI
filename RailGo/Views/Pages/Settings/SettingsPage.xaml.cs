@@ -29,6 +29,9 @@ public sealed partial class SettingsPage : Page
         UpdateBackgroundImageUiState();
         _backgroundImageService.BackgroundImageChanged -= OnBackgroundImageChanged;
         _backgroundImageService.BackgroundImageChanged += OnBackgroundImageChanged;
+
+        // Load AI settings from Python backend
+        _ = LoadAISettingsAsync();
     }
 
     private void InitializeThemeComboBox()
@@ -182,5 +185,137 @@ public sealed partial class SettingsPage : Page
         var dataPackage = new DataPackage();
         dataPackage.SetText("652032716");
         Clipboard.SetContent(dataPackage);
+    }
+
+    // ============================================================
+    // AI / RailGPT API Settings handlers
+    // ============================================================
+
+    private async Task LoadAISettingsAsync()
+    {
+        await ViewModel.LoadAISettingsAsync();
+        RefreshAIStatusDisplay();
+    }
+
+    private void RefreshAIStatusDisplay()
+    {
+        // Primary key status
+        if (!string.IsNullOrEmpty(ViewModel.MaskedPrimaryKeyDisplay))
+            PrimaryKeyStatus.Text = $"已配置: {ViewModel.MaskedPrimaryKeyDisplay}";
+        else
+            PrimaryKeyStatus.Text = "未配置";
+
+        // Thinking key status
+        if (!string.IsNullOrEmpty(ViewModel.MaskedThinkingKeyDisplay))
+            ThinkingKeyStatus.Text = $"已配置: {ViewModel.MaskedThinkingKeyDisplay}";
+        else
+            ThinkingKeyStatus.Text = "未配置，将自动复用主对话 Key";
+
+        // Config path
+        ConfigPathText.Text = "%APPDATA%/RailGPT/settings.enc";
+
+        // InfoBar
+        if (ViewModel.HasApiKeyConfigured)
+        {
+            AISettingsInfoBar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success;
+            AISettingsInfoBar.Title = "已配置";
+            AISettingsInfoBar.Message = $"Provider: {ViewModel.SelectedProvider} | 更新于: {ViewModel.AiConfigUpdatedAt}";
+            AISettingsInfoBar.IsOpen = true;
+        }
+        else
+        {
+            AISettingsInfoBar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Warning;
+            AISettingsInfoBar.Title = "未配置 API Key";
+            AISettingsInfoBar.Message = "请输入 API Key 以启用 RailGPT 对话功能";
+            AISettingsInfoBar.IsOpen = true;
+        }
+    }
+
+    private async void OnSavePrimaryKeyClicked(object sender, RoutedEventArgs e)
+    {
+        var key = PrimaryApiKeyBox.Password?.Trim();
+        if (string.IsNullOrEmpty(key))
+        {
+            AISettingsInfoBar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error;
+            AISettingsInfoBar.Title = "输入为空";
+            AISettingsInfoBar.Message = "请输入主对话 API Key";
+            AISettingsInfoBar.IsOpen = true;
+            return;
+        }
+
+        SavePrimaryKeyBtn.IsEnabled = false;
+        try
+        {
+            ViewModel.PrimaryApiKeyInput = key;
+            ViewModel.ThinkingApiKeyInput = ThinkingApiKeyBox.Password?.Trim() ?? "";
+            await ViewModel.SaveAISettingsAsync();
+            PrimaryApiKeyBox.Password = "";
+            RefreshAIStatusDisplay();
+        }
+        finally
+        {
+            SavePrimaryKeyBtn.IsEnabled = true;
+        }
+    }
+
+    private async void OnClearPrimaryKeyClicked(object sender, RoutedEventArgs e)
+    {
+        ClearPrimaryKeyBtn.IsEnabled = false;
+        try
+        {
+            await ViewModel.ClearApiKeyAsync("primary");
+            RefreshAIStatusDisplay();
+        }
+        finally
+        {
+            ClearPrimaryKeyBtn.IsEnabled = true;
+        }
+    }
+
+    private async void OnSaveThinkingKeyClicked(object sender, RoutedEventArgs e)
+    {
+        var key = ThinkingApiKeyBox.Password?.Trim();
+        if (string.IsNullOrEmpty(key))
+        {
+            AISettingsInfoBar.Severity = Microsoft.UI.Xaml.Controls.InfoBarSeverity.Error;
+            AISettingsInfoBar.Title = "输入为空";
+            AISettingsInfoBar.Message = "请输入 Thinker API Key";
+            AISettingsInfoBar.IsOpen = true;
+            return;
+        }
+
+        SaveThinkingKeyBtn.IsEnabled = false;
+        try
+        {
+            ViewModel.ThinkingApiKeyInput = key;
+            ViewModel.PrimaryApiKeyInput = PrimaryApiKeyBox.Password?.Trim() ?? "";
+            await ViewModel.SaveAISettingsAsync();
+            ThinkingApiKeyBox.Password = "";
+            RefreshAIStatusDisplay();
+        }
+        finally
+        {
+            SaveThinkingKeyBtn.IsEnabled = true;
+        }
+    }
+
+    private async void OnClearThinkingKeyClicked(object sender, RoutedEventArgs e)
+    {
+        ClearThinkingKeyBtn.IsEnabled = false;
+        try
+        {
+            await ViewModel.ClearApiKeyAsync("thinking");
+            RefreshAIStatusDisplay();
+        }
+        finally
+        {
+            ClearThinkingKeyBtn.IsEnabled = true;
+        }
+    }
+
+    private void ProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ProviderComboBox.SelectedItem is ComboBoxItem item && item.Tag != null)
+            ViewModel.SelectedProvider = item.Tag.ToString()!;
     }
 }

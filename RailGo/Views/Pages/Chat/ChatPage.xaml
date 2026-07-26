@@ -1,0 +1,9 @@
+<Page
+    x:Class="RailGo.Views.Pages.Chat.ChatPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls">
+
+    <!-- RailGPT 原生前端 — WebView2 直接嵌入，100% 复用 -->
+    <controls:WebView2 x:Name="RailGPTWebView" />
+</Page>
