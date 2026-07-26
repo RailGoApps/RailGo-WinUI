@@ -27,6 +27,7 @@ public sealed partial class ShellPage : Page
     private bool _loadingConversations;
     private Task? _backendStartTask;
     private int? _activeConversationId;
+    private bool _hostEventsRegistered;
 
     public ShellViewModel ViewModel { get; }
 
@@ -45,14 +46,15 @@ public sealed partial class ShellPage : Page
 
         ViewModel.NavigationService.Frame = NavigationFrame;
         ViewModel.NavigationViewService.Initialize(NavigationViewControl);
-        NavigationViewControl.ItemInvoked += OnHostItemInvoked;
-        ViewModel.NavigationService.Navigated += OnHostNavigated;
-        _processManager.StatusChanged += OnBackendStatusChanged;
-        _chatClient.ConversationsChanged += OnConversationsChanged;
+        RegisterHostEvents();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // ShellPage can be unloaded and loaded again without being reconstructed.
+        // Restore the RailGPT-specific handlers that OnUnloaded releases.
+        RegisterHostEvents();
+
         TitleBarHelper.UpdateTitleBar(RequestedTheme);
         KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.Left, VirtualKeyModifiers.Menu));
         KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.GoBack));
@@ -62,6 +64,30 @@ public sealed partial class ShellPage : Page
         _ = ApplyBackgroundImageAsync(_backgroundImageService.BackgroundImagePath);
 
         _ = InitializeConversationNavigationAsync();
+    }
+
+    private void RegisterHostEvents()
+    {
+        if (_hostEventsRegistered)
+            return;
+
+        NavigationViewControl.ItemInvoked += OnHostItemInvoked;
+        ViewModel.NavigationService.Navigated += OnHostNavigated;
+        _processManager.StatusChanged += OnBackendStatusChanged;
+        _chatClient.ConversationsChanged += OnConversationsChanged;
+        _hostEventsRegistered = true;
+    }
+
+    private void UnregisterHostEvents()
+    {
+        if (!_hostEventsRegistered)
+            return;
+
+        NavigationViewControl.ItemInvoked -= OnHostItemInvoked;
+        ViewModel.NavigationService.Navigated -= OnHostNavigated;
+        _processManager.StatusChanged -= OnBackendStatusChanged;
+        _chatClient.ConversationsChanged -= OnConversationsChanged;
+        _hostEventsRegistered = false;
     }
 
     private async void OnHostItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
@@ -272,10 +298,7 @@ public sealed partial class ShellPage : Page
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _backgroundImageService.BackgroundImageChanged -= OnBackgroundImageChanged;
-        _processManager.StatusChanged -= OnBackendStatusChanged;
-        _chatClient.ConversationsChanged -= OnConversationsChanged;
-        ViewModel.NavigationService.Navigated -= OnHostNavigated;
-        NavigationViewControl.ItemInvoked -= OnHostItemInvoked;
+        UnregisterHostEvents();
     }
 
     private void OnBackgroundImageChanged(object? sender, string? imagePath)
