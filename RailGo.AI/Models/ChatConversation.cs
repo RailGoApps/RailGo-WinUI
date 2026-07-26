@@ -12,11 +12,19 @@ public class ChatConversation
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
     [JsonPropertyName("created")]
-    public DateTime CreatedAt { get; set; }
+    public string Created { get; set; } = string.Empty;
     [JsonPropertyName("updated")]
-    public DateTime UpdatedAt { get; set; }
+    public string Updated { get; set; } = string.Empty;
     [JsonPropertyName("message_count")]
     public int MessageCount { get; set; }
+
+    [JsonIgnore]
+    public DateTime CreatedAt =>
+        DateTime.TryParse(Created, out var value) ? value : DateTime.MinValue;
+
+    [JsonIgnore]
+    public DateTime UpdatedAt =>
+        DateTime.TryParse(Updated, out var value) ? value : DateTime.MinValue;
 
     /// <summary>Formatted updated-at string for display (relative or absolute).</summary>
     public string UpdatedAtText =>

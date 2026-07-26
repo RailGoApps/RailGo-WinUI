@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using RailGo.Contracts.Services;
+using RailGo.AI.Services;
 using RailGo.ViewModels.Pages.Chat;
 using RailGo.ViewModels.Pages.Trains;
 
@@ -12,11 +13,13 @@ public sealed partial class ChatPage : Page
 {
     public ChatViewModel ViewModel { get; }
     private readonly INavigationService _navigationService;
+    private readonly IAIChatClient _chatClient;
 
     public ChatPage()
     {
         ViewModel = App.GetService<ChatViewModel>();
         _navigationService = App.GetService<INavigationService>();
+        _chatClient = App.GetService<IAIChatClient>();
         InitializeComponent();
 
         ViewModel.BackendReady += OnBackendReady;
@@ -46,11 +49,19 @@ public sealed partial class ChatPage : Page
         {
             using var document = JsonDocument.Parse(args.WebMessageAsJson);
             var root = document.RootElement;
-            if (!root.TryGetProperty("type", out var type) || type.GetString() != "open_railgo")
+            if (!root.TryGetProperty("type", out var type))
                 return;
 
-            if (root.TryGetProperty("uri", out var uriElement))
-                OpenRailGoUri(uriElement.GetString());
+            switch (type.GetString())
+            {
+                case "open_railgo":
+                    if (root.TryGetProperty("uri", out var uriElement))
+                        OpenRailGoUri(uriElement.GetString());
+                    break;
+                case "conversations_changed":
+                    _chatClient.NotifyConversationsChanged();
+                    break;
+            }
         }
         catch (JsonException ex)
         {

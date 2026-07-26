@@ -50,16 +50,18 @@ public sealed class PythonProcessManager : IPythonProcessManager, IDisposable
             return;
 
         await _bridgeHost.StartAsync();
-        _actualPort = DefaultPort;
-        if (await IsEmbeddedCompatibleAsync())
+        var compatiblePort = await FindEmbeddedCompatiblePortAsync();
+        if (compatiblePort is int externalPort)
         {
             // This is an external service. Never stop it from this host.
+            _actualPort = externalPort;
             _ownsProcess = false;
             SetRunning(true);
             StartHealthChecks();
             return;
         }
 
+        _actualPort = DefaultPort;
         if (await HealthCheckAsync())
             _logger?.LogInformation("Existing RailGPT service on port {Port} does not support embedded mode; starting the in-repository runtime on another port.", _actualPort);
 
@@ -150,20 +152,34 @@ public sealed class PythonProcessManager : IPythonProcessManager, IDisposable
     }
 
     private async Task<bool> IsEmbeddedCompatibleAsync()
-    {
-        if (!await HealthCheckAsync())
-            return false;
+        => await IsEmbeddedCompatibleAsync(_actualPort, CancellationToken.None);
 
+    private async Task<bool> IsEmbeddedCompatibleAsync(int port, CancellationToken cancellationToken)
+    {
         try
         {
-            using var response = await _httpClient.GetAsync($"{BaseUrl}/?embedded=1");
+            var baseUrl = $"http://127.0.0.1:{port}";
+            using var status = await _httpClient.GetAsync($"{baseUrl}/api/status", cancellationToken);
+            if (!status.IsSuccessStatusCode)
+                return false;
+
+            using var response = await _httpClient.GetAsync($"{baseUrl}/?embedded=1", cancellationToken);
             if (!response.IsSuccessStatusCode)
                 return false;
-            var html = await response.Content.ReadAsStringAsync();
+            var html = await response.Content.ReadAsStringAsync(cancellationToken);
             return html.Contains("class=\"embedded\"", StringComparison.OrdinalIgnoreCase) ||
                    html.Contains("class='embedded'", StringComparison.OrdinalIgnoreCase);
         }
         catch { return false; }
+    }
+
+    private async Task<int?> FindEmbeddedCompatiblePortAsync()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1.5));
+        var probes = Enumerable.Range(DefaultPort, 8)
+            .Select(async port => await IsEmbeddedCompatibleAsync(port, timeout.Token) ? (int?)port : null);
+        var results = await Task.WhenAll(probes);
+        return results.FirstOrDefault(port => port.HasValue);
     }
 
     private void StartHealthChecks()
@@ -250,6 +266,9 @@ public sealed class PythonProcessManager : IPythonProcessManager, IDisposable
         info.Environment["RAILGPT_PORT"] = port.ToString();
         info.Environment["RAILGPT_MODE"] = "server";
         info.Environment["RAILGO_BRIDGE_PIPE"] = bridgePipeName;
+        info.Environment["RAILGPT_DATA_ROOT"] = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "RailGPT");
         return info;
     }
 

@@ -19,6 +19,7 @@ public class AIChatClient : IAIChatClient
     private readonly ILogger<AIChatClient>? _logger;
 
     public string BaseUrl => _processManager.BaseUrl;
+    public event EventHandler? ConversationsChanged;
 
     public AIChatClient(HttpClient httpClient, IPythonProcessManager processManager, ILogger<AIChatClient>? logger = null)
     {
@@ -28,6 +29,8 @@ public class AIChatClient : IAIChatClient
         _processManager = processManager;
         _logger = logger;
     }
+
+    public void NotifyConversationsChanged() => ConversationsChanged?.Invoke(this, EventArgs.Empty);
 
     public async IAsyncEnumerable<ChatEvent> SendMessageAsync(string text, [EnumeratorCancellation] CancellationToken ct = default)
     {

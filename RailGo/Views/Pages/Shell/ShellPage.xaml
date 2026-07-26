@@ -8,7 +8,9 @@
     <Grid x:Name="RootGrid">
         <NavigationView
             x:Name="NavigationViewControl"
-            OpenPaneLength="220"
+            OpenPaneLength="280"
+            PaneDisplayMode="Left"
+            IsPaneOpen="True"
             Canvas.ZIndex="0"
             IsBackButtonVisible="Collapsed"
             SelectedItem="{x:Bind ViewModel.Selected, Mode=OneWay}"
@@ -51,15 +53,12 @@
 
                 <NavigationViewItemSeparator />
 
-                <!-- RailGPT host-owned navigation -->
-                <NavigationViewItem x:Name="AIChatNavItem" Content="RailGPT"
-                                    helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.Chat.ChatViewModel">
-                    <NavigationViewItem.Icon><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8E2;" /></NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem x:Name="RailGPTNewChatNavItem" Content="新建 RailGPT 对话" Tag="chat:new">
+                <!-- RailGPT conversations live directly in the RailGo shell. -->
+                <NavigationViewItemHeader Content="RailGPT 对话" />
+                <NavigationViewItem x:Name="RailGPTNewChatNavItem" Content="新建对话" Tag="chat:new">
                     <NavigationViewItem.Icon><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE710;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItemSeparator x:Name="RailGPTHistorySeparator" Visibility="Collapsed" />
+                <NavigationViewItemHeader x:Name="RailGPTHistoryHeader" Content="历史对话" Visibility="Collapsed" />
             </NavigationView.MenuItems>
 
             <Grid Margin="{StaticResource NavigationViewPageContentMargin}">

@@ -68,6 +68,8 @@
   <ItemGroup>
     <Content Include="..\RailGPT\**\*"
              Exclude="..\RailGPT\**\__pycache__\**;..\RailGPT\**\*.pyc;..\RailGPT\**\*.db;..\RailGPT\**\hf_cache\**;..\RailGPT\**\build\**;..\RailGPT\**\dist\**;..\RailGPT\**\release\**">
+      <Link>RailGPT\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <TargetPath>RailGPT\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

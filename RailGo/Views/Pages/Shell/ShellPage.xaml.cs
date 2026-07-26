@@ -25,6 +25,8 @@ public sealed partial class ShellPage : Page
     private readonly IAIChatClient _chatClient;
     private readonly List<NavigationViewItem> _conversationItems = new();
     private bool _loadingConversations;
+    private Task? _backendStartTask;
+    private int? _activeConversationId;
 
     public ShellViewModel ViewModel { get; }
 
@@ -46,6 +48,7 @@ public sealed partial class ShellPage : Page
         NavigationViewControl.ItemInvoked += OnHostItemInvoked;
         ViewModel.NavigationService.Navigated += OnHostNavigated;
         _processManager.StatusChanged += OnBackendStatusChanged;
+        _chatClient.ConversationsChanged += OnConversationsChanged;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -58,11 +61,10 @@ public sealed partial class ShellPage : Page
         _backgroundImageService.BackgroundImageChanged += OnBackgroundImageChanged;
         _ = ApplyBackgroundImageAsync(_backgroundImageService.BackgroundImagePath);
 
-        if (_processManager.IsRunning)
-            _ = LoadConversationItemsAsync();
+        _ = InitializeConversationNavigationAsync();
     }
 
-    private void OnHostItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    private async void OnHostItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
         if (args.InvokedItemContainer is not NavigationViewItem item || item.Tag is not string tag)
             return;
@@ -70,7 +72,15 @@ public sealed partial class ShellPage : Page
         var navigationKey = typeof(ChatViewModel).FullName!;
         if (tag == "chat:new")
         {
-            ViewModel.NavigationService.NavigateTo(navigationKey);
+            if (!await EnsureBackendAsync())
+                return;
+
+            var conversation = await _chatClient.CreateConversationAsync();
+            if (conversation == null)
+                return;
+
+            await LoadConversationItemsAsync();
+            ViewModel.NavigationService.NavigateTo(navigationKey, conversation.Id);
             return;
         }
 
@@ -88,13 +98,15 @@ public sealed partial class ShellPage : Page
 
         if (e.Parameter is int cid)
         {
+            _activeConversationId = cid;
             NavigationViewControl.SelectedItem = _conversationItems.FirstOrDefault(
                 item => string.Equals(item.Tag?.ToString(), $"chat:{cid}", StringComparison.OrdinalIgnoreCase))
-                ?? AIChatNavItem;
+                ?? RailGPTNewChatNavItem;
         }
         else
         {
-            NavigationViewControl.SelectedItem = AIChatNavItem;
+            _activeConversationId = null;
+            NavigationViewControl.SelectedItem = RailGPTNewChatNavItem;
         }
     }
 
@@ -104,6 +116,9 @@ public sealed partial class ShellPage : Page
             return;
         DispatcherQueue.TryEnqueue(() => _ = LoadConversationItemsAsync());
     }
+
+    private void OnConversationsChanged(object? sender, EventArgs e) =>
+        DispatcherQueue.TryEnqueue(() => _ = LoadConversationItemsAsync());
 
     private async Task LoadConversationItemsAsync()
     {
@@ -122,29 +137,123 @@ public sealed partial class ShellPage : Page
         }
     }
 
+    private async Task InitializeConversationNavigationAsync()
+    {
+        if (await EnsureBackendAsync())
+            await LoadConversationItemsAsync();
+    }
+
+    private async Task<bool> EnsureBackendAsync()
+    {
+        if (_processManager.IsRunning)
+            return true;
+
+        _backendStartTask ??= _processManager.StartAsync();
+        await _backendStartTask;
+        if (!_processManager.IsRunning)
+            _backendStartTask = null;
+        return _processManager.IsRunning;
+    }
+
     private void RenderConversationItems(IReadOnlyList<ChatConversation> conversations)
     {
         foreach (var item in _conversationItems)
             NavigationViewControl.MenuItems.Remove(item);
         _conversationItems.Clear();
 
-        var insertIndex = NavigationViewControl.MenuItems.IndexOf(RailGPTNewChatNavItem) + 1;
+        var insertIndex = NavigationViewControl.MenuItems.IndexOf(RailGPTHistoryHeader) + 1;
         foreach (var conversation in conversations.OrderByDescending(c => c.UpdatedAt))
         {
             var item = new NavigationViewItem
             {
                 Content = string.IsNullOrWhiteSpace(conversation.Title) ? "新对话" : conversation.Title,
                 Tag = $"chat:{conversation.Id}",
-                Icon = new FontIcon { Glyph = "\uE8BD" },
             };
             ToolTipService.SetToolTip(item, conversation.Title);
+            item.ContextFlyout = BuildConversationMenu(conversation);
             NavigationViewControl.MenuItems.Insert(insertIndex++, item);
             _conversationItems.Add(item);
         }
 
-        RailGPTHistorySeparator.Visibility = _conversationItems.Count > 0
+        RailGPTHistoryHeader.Visibility = _conversationItems.Count > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+        if (_activeConversationId is int activeId)
+            NavigationViewControl.SelectedItem = _conversationItems.FirstOrDefault(
+                item => string.Equals(item.Tag?.ToString(), $"chat:{activeId}", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private MenuFlyout BuildConversationMenu(ChatConversation conversation)
+    {
+        var menu = new MenuFlyout();
+        var rename = new MenuFlyoutItem
+        {
+            Text = "重命名",
+            Icon = new FontIcon { Glyph = "\uE70F" },
+        };
+        rename.Click += async (_, _) => await RenameConversationAsync(conversation);
+
+        var delete = new MenuFlyoutItem
+        {
+            Text = "删除",
+            Icon = new FontIcon { Glyph = "\uE74D" },
+        };
+        delete.Click += async (_, _) => await DeleteConversationAsync(conversation);
+
+        menu.Items.Add(rename);
+        menu.Items.Add(delete);
+        return menu;
+    }
+
+    private async Task RenameConversationAsync(ChatConversation conversation)
+    {
+        var input = new TextBox
+        {
+            Text = conversation.Title,
+            PlaceholderText = "对话名称",
+            SelectionStart = conversation.Title.Length,
+        };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "重命名对话",
+            Content = input,
+            PrimaryButtonText = "保存",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || string.IsNullOrWhiteSpace(input.Text))
+            return;
+
+        if (await _chatClient.RenameConversationAsync(conversation.Id, input.Text.Trim()))
+            await LoadConversationItemsAsync();
+    }
+
+    private async Task DeleteConversationAsync(ChatConversation conversation)
+    {
+        var title = string.IsNullOrWhiteSpace(conversation.Title) ? "新对话" : conversation.Title;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "删除对话？",
+            Content = $"“{title}”将被永久删除。",
+            PrimaryButtonText = "删除",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        if (!await _chatClient.DeleteConversationAsync(conversation.Id))
+            return;
+
+        var deletedActiveConversation = _activeConversationId == conversation.Id;
+        if (deletedActiveConversation)
+            _activeConversationId = null;
+        await LoadConversationItemsAsync();
+        if (deletedActiveConversation)
+            NavigationViewControl.SelectedItem = RailGPTNewChatNavItem;
     }
 
     private static KeyboardAccelerator BuildKeyboardAccelerator(VirtualKey key, VirtualKeyModifiers? modifiers = null)
@@ -164,6 +273,7 @@ public sealed partial class ShellPage : Page
     {
         _backgroundImageService.BackgroundImageChanged -= OnBackgroundImageChanged;
         _processManager.StatusChanged -= OnBackendStatusChanged;
+        _chatClient.ConversationsChanged -= OnConversationsChanged;
         ViewModel.NavigationService.Navigated -= OnHostNavigated;
         NavigationViewControl.ItemInvoked -= OnHostItemInvoked;
     }

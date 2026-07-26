@@ -319,6 +319,9 @@ async function deleteApiKey(slot) {
 async function loadConvList() {
   const list = await apiGet("/api/conversations");
   renderConvList(list);
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage({ type: "conversations_changed" });
+  }
 }
 
 function renderConvList(items) {

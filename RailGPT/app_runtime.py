@@ -46,6 +46,9 @@ def resource_path(*parts: str) -> str:
 
 
 def runtime_root() -> Path:
+    configured_root = str(os.environ.get("RAILGPT_DATA_ROOT") or "").strip()
+    if configured_root:
+        return Path(configured_root).expanduser().resolve()
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent
