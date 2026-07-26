@@ -51,7 +51,7 @@ public sealed class PythonProcessManager : IPythonProcessManager, IDisposable
 
         await _bridgeHost.StartAsync();
         _actualPort = DefaultPort;
-        if (await HealthCheckAsync())
+        if (await IsEmbeddedCompatibleAsync())
         {
             // This is an external service. Never stop it from this host.
             _ownsProcess = false;
@@ -59,6 +59,9 @@ public sealed class PythonProcessManager : IPythonProcessManager, IDisposable
             StartHealthChecks();
             return;
         }
+
+        if (await HealthCheckAsync())
+            _logger?.LogInformation("Existing RailGPT service on port {Port} does not support embedded mode; starting the in-repository runtime on another port.", _actualPort);
 
         var runtime = FindRuntime();
         if (runtime == null)
@@ -142,6 +145,23 @@ public sealed class PythonProcessManager : IPythonProcessManager, IDisposable
         {
             using var response = await _httpClient.GetAsync($"{BaseUrl}/api/status");
             return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    private async Task<bool> IsEmbeddedCompatibleAsync()
+    {
+        if (!await HealthCheckAsync())
+            return false;
+
+        try
+        {
+            using var response = await _httpClient.GetAsync($"{BaseUrl}/?embedded=1");
+            if (!response.IsSuccessStatusCode)
+                return false;
+            var html = await response.Content.ReadAsStringAsync();
+            return html.Contains("class=\"embedded\"", StringComparison.OrdinalIgnoreCase) ||
+                   html.Contains("class='embedded'", StringComparison.OrdinalIgnoreCase);
         }
         catch { return false; }
     }
@@ -249,7 +269,7 @@ public sealed class PythonProcessManager : IPythonProcessManager, IDisposable
             {
                 foreach (var python in FindPythonCandidates())
                 {
-                    if (CanExecute(python, "--version"))
+                    if (CanExecute(python, "-c", "import flask, werkzeug"))
                         return new RuntimeInfo(directory, python, entryPoint, true, null);
                 }
             }
@@ -280,25 +300,35 @@ public sealed class PythonProcessManager : IPythonProcessManager, IDisposable
 
     private static IEnumerable<string> FindPythonCandidates()
     {
+        var configured = Environment.GetEnvironmentVariable("RAILGPT_PYTHON");
+        if (!string.IsNullOrWhiteSpace(configured))
+            yield return configured;
+
         yield return "python.exe";
         yield return "python3.exe";
         yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Python", "Python312", "python.exe");
         yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "anaconda3", "python.exe");
+
+        var userName = Environment.UserName;
+        foreach (var drive in DriveInfo.GetDrives().Where(drive => drive.IsReady))
+            yield return Path.Combine(drive.RootDirectory.FullName, "Users", userName, "anaconda3", "python.exe");
     }
 
-    private static bool CanExecute(string executable, string arguments)
+    private static bool CanExecute(string executable, params string[] arguments)
     {
         try
         {
-            using var process = Process.Start(new ProcessStartInfo
+            var startInfo = new ProcessStartInfo
             {
                 FileName = executable,
-                Arguments = arguments,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
-            });
+            };
+            foreach (var argument in arguments)
+                startInfo.ArgumentList.Add(argument);
+            using var process = Process.Start(startInfo);
             process?.WaitForExit(5000);
             return process?.ExitCode == 0;
         }
