@@ -2,11 +2,7 @@
     x:Class="RailGo.Views.Pages.Shell.ShellPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:helpers="using:RailGo.Helpers"
-    xmlns:behaviors="using:RailGo.Behaviors"
-    xmlns:i="using:Microsoft.Xaml.Interactivity"
     Loaded="OnLoaded">
 
     <Grid x:Name="RootGrid">
@@ -22,66 +18,50 @@
 
             <NavigationView.PaneHeader>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                    <Image Source="/Assets/WindowIcon.ico"
-                        HorizontalAlignment="Left"
-                        Width="25"
-                        Height="25" 
-                        Margin="8,0"/>
-                    <TextBlock 
-                        x:Name="AppTitleBarText"
-                        VerticalAlignment="Center"
-                        TextWrapping="NoWrap"
-                        Style="{StaticResource CaptionTextBlockStyle}"
-                        Margin="3,0"
-                        FontSize="15">
-                            <Bold>RailGo</Bold>
+                    <Image Source="/Assets/WindowIcon.ico" Width="25" Height="25" Margin="8,0" />
+                    <TextBlock x:Name="AppTitleBarText" VerticalAlignment="Center"
+                               Style="{StaticResource CaptionTextBlockStyle}" Margin="3,0" FontSize="15">
+                        <Bold>RailGo</Bold>
                     </TextBlock>
                 </StackPanel>
             </NavigationView.PaneHeader>
+
             <NavigationView.Resources>
                 <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
             </NavigationView.Resources>
+
             <NavigationView.MenuItems>
-                <!-- Default: RailGo Home (railway query) -->
+                <!-- RailGo native features -->
                 <NavigationViewItem x:Uid="Shell_Main" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.Shell.MainViewModel">
-                    <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE80F;"/>
-                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Icon><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE80F;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-
-                <!-- AI Chat (RailGPT powered) -->
-                <NavigationViewItem x:Uid="Shell_AI_Chat" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.Chat.ChatViewModel" x:Name="AIChatNavItem" Content="RailGPT">
-                    <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8E2;"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <!-- Separator -->
-                <NavigationViewItemSeparator/>
-
-                <!-- Railway query sub-items -->
                 <NavigationViewItem x:Uid="Shell_EMU_Routing" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.TrainEmus.EMU_RoutingViewModel">
-                    <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7C0;"/>
-                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Icon><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7C0;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_Train_Number" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.Trains.Train_NumberViewModel">
-                    <NavigationViewItem.Icon>
-                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE787;"/>
-                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Icon><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE787;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_Station_Information" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.Stations.Station_InformationViewModel">
-                    <NavigationViewItem.Icon>
-                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF161;"/>
-                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Icon><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF161;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_StationToStation" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.StationToStation.StationToStationViewModel">
-                    <NavigationViewItem.Icon>
-                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE80F;"/>
-                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.Icon><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE80F;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
+
+                <NavigationViewItemSeparator />
+
+                <!-- RailGPT host-owned navigation -->
+                <NavigationViewItem x:Name="AIChatNavItem" Content="RailGPT"
+                                    helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.Chat.ChatViewModel">
+                    <NavigationViewItem.Icon><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8E2;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="RailGPTNewChatNavItem" Content="新建 RailGPT 对话" Tag="chat:new">
+                    <NavigationViewItem.Icon><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE710;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItemSeparator x:Name="RailGPTHistorySeparator" Visibility="Collapsed" />
             </NavigationView.MenuItems>
+
             <Grid Margin="{StaticResource NavigationViewPageContentMargin}">
                 <Frame x:Name="NavigationFrame" />
             </Grid>

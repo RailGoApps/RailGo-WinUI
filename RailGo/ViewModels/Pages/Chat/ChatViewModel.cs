@@ -20,11 +20,17 @@ public partial class ChatViewModel : ObservableObject, INavigationAware
     /// <summary>Fired when the RailGPT backend is ready, providing the URL for WebView2.</summary>
     public event Action<string>? BackendReady;
 
+    public string BaseUrl => _processManager.BaseUrl;
+    public string RuntimeDescription => _processManager.RuntimeDescription;
+
     [ObservableProperty]
     private bool _isBackendRunning;
 
     [ObservableProperty]
     private string _statusText = "正在启动 RailGPT 后端…";
+
+    [ObservableProperty]
+    private int? _conversationId;
 
     public ChatViewModel(IPythonProcessManager processManager)
     {
@@ -56,7 +62,7 @@ public partial class ChatViewModel : ObservableObject, INavigationAware
         {
             IsBackendRunning = true;
             StatusText = "就绪";
-            var url = _processManager.BaseUrl;
+            var url = BuildEmbeddedUrl();
             _dispatcher.TryEnqueue(() => BackendReady?.Invoke(url));
         }
         else
@@ -70,7 +76,7 @@ public partial class ChatViewModel : ObservableObject, INavigationAware
             {
                 IsBackendRunning = true;
                 StatusText = "就绪";
-                var url = _processManager.BaseUrl;
+                var url = BuildEmbeddedUrl();
                 _dispatcher.TryEnqueue(() => BackendReady?.Invoke(url));
             }
             else
@@ -78,6 +84,12 @@ public partial class ChatViewModel : ObservableObject, INavigationAware
                 StatusText = "RailGPT 后端启动失败";
             }
         }
+    }
+
+    private string BuildEmbeddedUrl()
+    {
+        var url = $"{_processManager.BaseUrl}/?embedded=1";
+        return ConversationId is int cid ? $"{url}&conversation={cid}" : url;
     }
 
     public void Cleanup()
@@ -89,6 +101,12 @@ public partial class ChatViewModel : ObservableObject, INavigationAware
     /// <summary>Called by the navigation framework when navigating to this page.</summary>
     public async void OnNavigatedTo(object parameter)
     {
+        ConversationId = parameter switch
+        {
+            int cid => cid,
+            string text when int.TryParse(text, out var cid) => cid,
+            _ => null,
+        };
         await InitializeAsync();
     }
 

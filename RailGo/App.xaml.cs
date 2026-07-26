@@ -147,6 +147,7 @@ public partial class App : Application
 
             // AI Services (RailGPT integration)
             services.AddSingleton<HttpClient>();
+            services.AddSingleton<IRailGoBridgeHost, RailGoBridgeServer>();
             services.AddSingleton<IPythonProcessManager, PythonProcessManager>();
             services.AddSingleton<IAIChatClient, AIChatClient>();
             services.AddSingleton<AISettingsService>();
@@ -193,19 +194,6 @@ public partial class App : Application
 
         base.OnLaunched(args);
 
-        // Start RailGPT Python backend in background (non-blocking)
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var processManager = App.GetService<IPythonProcessManager>();
-                await processManager.StartAsync();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"RailGPT backend startup failed: {ex.Message}");
-            }
-        });
         // App.GetService<IAppNotificationService>().Show(string.Format("AppNotificationSamplePayload".GetLocalized(), AppContext.BaseDirectory));
         await App.GetService<IActivationService>().ActivateAsync(args);
     }

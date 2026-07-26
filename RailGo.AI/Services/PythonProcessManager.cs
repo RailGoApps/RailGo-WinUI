@@ -1,236 +1,329 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 
 namespace RailGo.AI.Services;
 
 /// <summary>
-/// Manages the RailGPT Python backend lifecycle.
-/// Port selection: tries 5033 first (like Jupyter Notebook auto-find),
-/// increments until an available port is found. Reports actual port via <see cref="BaseUrl"/>.
+/// Owns the local RailGPT server started for the WinUI host.
+/// The published application uses RailGPT.Runtime.exe; source checkouts may
+/// fall back to a local Python interpreter for development.
 /// </summary>
-public class PythonProcessManager : IPythonProcessManager, IDisposable
+public sealed class PythonProcessManager : IPythonProcessManager, IDisposable
 {
-    private const int DEFAULT_PORT = 5033;
-    private const int MAX_PORT_TRIES = 100;  // 5033..5132
-    private const int MAX_RESTART_ATTEMPTS = 3;
-    private const int HEALTH_CHECK_INTERVAL_MS = 5000;
+    private const int DefaultPort = 5033;
+    private const int MaxPortTries = 100;
+    private const int MaxRestartAttempts = 3;
+    private const int HealthCheckIntervalMs = 5000;
+
     private readonly HttpClient _httpClient;
+    private readonly IRailGoBridgeHost _bridgeHost;
     private readonly ILogger<PythonProcessManager>? _logger;
     private CancellationTokenSource? _healthCts;
     private Process? _process;
+    private int _actualPort = DefaultPort;
     private int _restartCount;
-    private int _actualPort;
+    private bool _ownsProcess;
     private bool _disposed;
 
-    /// <summary>Base URL of the running Flask server with actual port (e.g. http://localhost:5034).</summary>
-    public string BaseUrl => $"http://localhost:{_actualPort}";
-
-    public bool IsRunning { get; private set; }
-
-    public event EventHandler<bool>? StatusChanged;
-
-    public PythonProcessManager(HttpClient httpClient, ILogger<PythonProcessManager>? logger = null)
+    public PythonProcessManager(
+        HttpClient httpClient,
+        IRailGoBridgeHost bridgeHost,
+        ILogger<PythonProcessManager>? logger = null)
     {
         _httpClient = httpClient;
+        _bridgeHost = bridgeHost;
         _httpClient.Timeout = TimeSpan.FromSeconds(5);
         _logger = logger;
-        _actualPort = DEFAULT_PORT;
     }
 
-    // ================================================================
-    // Public API
-    // ================================================================
+    public string BaseUrl => $"http://127.0.0.1:{_actualPort}";
+    public string RuntimeDescription => FindRailGptDirectories().FirstOrDefault() ?? "RailGPT";
+    public bool IsRunning { get; private set; }
+    public event EventHandler<bool>? StatusChanged;
 
     public async Task StartAsync()
     {
-        if (_process != null && !_process.HasExited)
-        {
-            _logger?.LogInformation("RailGPT backend already running on port {Port}.", _actualPort);
+        if (IsRunning)
             return;
-        }
 
-        // Check if an existing healthy backend is already running on the default port
-        _actualPort = DEFAULT_PORT;
+        await _bridgeHost.StartAsync();
+        _actualPort = DefaultPort;
         if (await HealthCheckAsync())
         {
-            _logger?.LogInformation("Reusing existing RailGPT backend on port {Port}.", _actualPort);
-            IsRunning = true;
-            StatusChanged?.Invoke(this, true);
-            _healthCts = new CancellationTokenSource();
-            _ = PeriodicHealthCheckAsync(_healthCts.Token);
+            // This is an external service. Never stop it from this host.
+            _ownsProcess = false;
+            SetRunning(true);
+            StartHealthChecks();
             return;
         }
 
-        var pythonPath = FindPython();
-        if (pythonPath == null)
+        var runtime = FindRuntime();
+        if (runtime == null)
         {
-            _logger?.LogError("Python runtime not found. RailGPT backend cannot start.");
+            _logger?.LogError("RailGPT runtime was not found. Expected RailGPT.Runtime.exe or server_entry.py under the app directory.");
             return;
         }
 
-        var railGptDir = FindRailGptDirectory();
-        if (railGptDir == null)
-        {
-            _logger?.LogError("RailGPT project directory not found (web_app.py missing).");
-            return;
-        }
-
-        // --- Jupyter-style auto port find ---
-        _actualPort = await FindAvailablePortAsync(DEFAULT_PORT);
-        _logger?.LogInformation("RailGPT binding to port {Port}.", _actualPort);
-
-        // Build the inline Python bootstrap script
-        var bootstrap = BuildBootstrapScript(railGptDir, _actualPort);
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = pythonPath,
-            Arguments = $"-c \"{EscapePythonArg(bootstrap)}\"",
-            WorkingDirectory = railGptDir,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
-        startInfo.Environment["RAILGPT_PORT"] = _actualPort.ToString();
-        startInfo.Environment["RAILGPT_MODE"] = "server";
-
+        _actualPort = await FindAvailablePortAsync(DefaultPort);
+        var startInfo = CreateStartInfo(runtime, _actualPort, _bridgeHost.PipeName);
         _process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-        _process.OutputDataReceived += (_, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-                _logger?.LogInformation("RailGPT: {Line}", e.Data);
-        };
-        _process.ErrorDataReceived += (_, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-                _logger?.LogWarning("RailGPT[err]: {Line}", e.Data);
-        };
+        _ownsProcess = true;
+        _process.OutputDataReceived += (_, e) => LogProcessLine(e.Data, false);
+        _process.ErrorDataReceived += (_, e) => LogProcessLine(e.Data, true);
         _process.Exited += OnProcessExited;
 
         try
         {
-            _process.Start();
+            if (!_process.Start())
+            {
+                _logger?.LogError("RailGPT runtime process could not be started.");
+                return;
+            }
+
             _process.BeginOutputReadLine();
             _process.BeginErrorReadLine();
 
-            var healthy = await WaitForServerAsync(TimeSpan.FromSeconds(30));
-            if (healthy)
+            if (!await WaitForServerAsync(TimeSpan.FromSeconds(60)))
             {
-                IsRunning = true;
-                _restartCount = 0;
-                StatusChanged?.Invoke(this, true);
-                _logger?.LogInformation("RailGPT backend healthy on {Url}.", BaseUrl);
-
-                _healthCts = new CancellationTokenSource();
-                _ = PeriodicHealthCheckAsync(_healthCts.Token);
-            }
-            else
-            {
-                _logger?.LogWarning("RailGPT did not respond on port {Port} within timeout.", _actualPort);
+                _logger?.LogError("RailGPT runtime did not become healthy on port {Port}.", _actualPort);
                 await StopAsync();
+                return;
             }
+
+            _restartCount = 0;
+            SetRunning(true);
+            StartHealthChecks();
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to launch RailGPT process.");
+            _logger?.LogError(ex, "Failed to start RailGPT runtime.");
+            await StopAsync();
         }
     }
 
     public async Task StopAsync()
     {
         _healthCts?.Cancel();
+        _healthCts?.Dispose();
+        _healthCts = null;
 
-        if (_process != null && !_process.HasExited)
+        // Only terminate a process created by this manager. An existing
+        // service discovered on port 5033 belongs to somebody else.
+        if (_ownsProcess && _process is { HasExited: false })
         {
-            try { await _httpClient.GetAsync($"{BaseUrl}/api/shutdown"); }
-            catch { /* best-effort graceful shutdown */ }
-
-            if (!_process.HasExited)
+            try
             {
-                _process.Kill(entireProcessTree: true);
-                await Task.Run(() => _process.WaitForExit(5000));
+                await _httpClient.PostAsync($"{BaseUrl}/api/shutdown", null);
             }
+            catch { }
+
+            try
+            {
+                if (!_process.HasExited)
+                {
+                    _process.Kill(entireProcessTree: true);
+                    await _process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                }
+            }
+            catch { }
         }
 
-        IsRunning = false;
-        StatusChanged?.Invoke(this, false);
-        _logger?.LogInformation("RailGPT backend on port {Port} stopped.", _actualPort);
+        SetRunning(false);
+        _ownsProcess = false;
+        await _bridgeHost.StopAsync();
     }
 
     public async Task<bool> HealthCheckAsync()
     {
         try
         {
-            var resp = await _httpClient.GetAsync($"{BaseUrl}/api/status");
-            return resp.IsSuccessStatusCode;
+            using var response = await _httpClient.GetAsync($"{BaseUrl}/api/status");
+            return response.IsSuccessStatusCode;
         }
         catch { return false; }
     }
 
-    // ================================================================
-    // Port finding (Jupyter style)
-    // ================================================================
-
-    /// <summary>
-    /// Find the first available port starting from <paramref name="startPort"/>.
-    /// Tries up to MAX_PORT_TRIES ports (like Jupyter's port auto-increment).
-    /// </summary>
-    private static async Task<int> FindAvailablePortAsync(int startPort)
+    private void StartHealthChecks()
     {
-        for (int port = startPort; port < startPort + MAX_PORT_TRIES; port++)
-        {
-            if (await IsPortAvailableAsync(port))
-                return port;
-        }
-        // Fallback: let OS pick a random port
-        return FindRandomAvailablePort();
+        _healthCts?.Cancel();
+        _healthCts?.Dispose();
+        _healthCts = new CancellationTokenSource();
+        _ = PeriodicHealthCheckAsync(_healthCts.Token);
     }
 
-    private static Task<bool> IsPortAvailableAsync(int port)
+    private async Task PeriodicHealthCheckAsync(CancellationToken ct)
     {
         try
         {
-            var listener = new TcpListener(IPAddress.Loopback, port);
-            listener.Start();
-            listener.Stop();
-            return Task.FromResult(true);
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(HealthCheckIntervalMs, ct);
+                if (!IsRunning || ct.IsCancellationRequested)
+                    break;
+
+                if (!await HealthCheckAsync())
+                    await TryRestartAsync();
+            }
         }
-        catch (SocketException)
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task TryRestartAsync()
+    {
+        if (_restartCount >= MaxRestartAttempts)
         {
-            return Task.FromResult(false);
+            _logger?.LogError("RailGPT restart limit reached.");
+            SetRunning(false);
+            return;
+        }
+
+        _restartCount++;
+        await StopAsync();
+        await Task.Delay(1000);
+        await StartAsync();
+    }
+
+    private void OnProcessExited(object? sender, EventArgs e)
+    {
+        if (_disposed)
+            return;
+
+        _logger?.LogWarning("RailGPT runtime exited with code {ExitCode}.", _process?.ExitCode);
+        SetRunning(false);
+    }
+
+    private void SetRunning(bool running)
+    {
+        if (IsRunning == running)
+            return;
+
+        IsRunning = running;
+        StatusChanged?.Invoke(this, running);
+    }
+
+    private void LogProcessLine(string? line, bool error)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+            return;
+        if (error) _logger?.LogWarning("RailGPT: {Line}", line);
+        else _logger?.LogInformation("RailGPT: {Line}", line);
+    }
+
+    private static ProcessStartInfo CreateStartInfo(RuntimeInfo runtime, int port, string bridgePipeName)
+    {
+        var info = new ProcessStartInfo
+        {
+            FileName = runtime.Executable,
+            WorkingDirectory = runtime.Directory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        if (runtime.IsPython)
+            info.ArgumentList.Add(runtime.EntryPoint!);
+
+        info.Environment["RAILGPT_HOST"] = "127.0.0.1";
+        info.Environment["RAILGPT_PORT"] = port.ToString();
+        info.Environment["RAILGPT_MODE"] = "server";
+        info.Environment["RAILGO_BRIDGE_PIPE"] = bridgePipeName;
+        return info;
+    }
+
+    private static RuntimeInfo? FindRuntime()
+    {
+        foreach (var directory in FindRailGptDirectories())
+        {
+            var bundled = Path.Combine(directory, "RailGPT.Runtime.exe");
+            var nestedBundled = Path.Combine(directory, "runtime", "RailGPT.Runtime.exe");
+            if (File.Exists(bundled))
+                return new RuntimeInfo(directory, bundled, null, false, null);
+            if (File.Exists(nestedBundled))
+                return new RuntimeInfo(directory, nestedBundled, null, false, null);
+
+            var entryPoint = Path.Combine(directory, "server_entry.py");
+            if (File.Exists(entryPoint))
+            {
+                foreach (var python in FindPythonCandidates())
+                {
+                    if (CanExecute(python, "--version"))
+                        return new RuntimeInfo(directory, python, entryPoint, true, null);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static IEnumerable<string> FindRailGptDirectories()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var candidates = new List<string>
+        {
+            Path.Combine(AppContext.BaseDirectory, "RailGPT"),
+            Path.Combine(Directory.GetCurrentDirectory(), "RailGPT"),
+        };
+
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var i = 0; i < 8 && current != null; i++, current = current.Parent!)
+            candidates.Add(Path.Combine(current.FullName, "RailGPT"));
+
+        foreach (var path in candidates)
+        {
+            var full = Path.GetFullPath(path);
+            if (seen.Add(full) && Directory.Exists(full))
+                yield return full;
         }
     }
 
-    private static int FindRandomAvailablePort()
+    private static IEnumerable<string> FindPythonCandidates()
     {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
+        yield return "python.exe";
+        yield return "python3.exe";
+        yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Python", "Python312", "python.exe");
+        yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "anaconda3", "python.exe");
     }
 
-    // ================================================================
-    // Internal helpers
-    // ================================================================
-
-    private static string BuildBootstrapScript(string railGptDir, int port)
+    private static bool CanExecute(string executable, string arguments)
     {
-        // Use Python raw string r'...' — backslashes are literal, no escaping needed
-        return $"import sys; sys.path.insert(0, r'{railGptDir}'); " +
-               $"from web_app import app; from app_init import build_backend; " +
-               $"app = build_backend(); " +
-               $"from werkzeug.serving import run_simple; " +
-               $"run_simple('127.0.0.1', {port}, app, threaded=True)";
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = executable,
+                Arguments = arguments,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            });
+            process?.WaitForExit(5000);
+            return process?.ExitCode == 0;
+        }
+        catch { return false; }
     }
 
-    private static string EscapePythonArg(string script)
+    private static async Task<int> FindAvailablePortAsync(int startPort)
     {
-        // Escape double-quotes for safe embedding in -c "..."
-        return script.Replace("\"", "\\\"");
+        for (var port = startPort; port < startPort + MaxPortTries; port++)
+        {
+            try
+            {
+                var listener = new TcpListener(IPAddress.Loopback, port);
+                listener.Start();
+                listener.Stop();
+                return port;
+            }
+            catch (SocketException) { await Task.Yield(); }
+        }
+
+        var fallback = new TcpListener(IPAddress.Loopback, 0);
+        fallback.Start();
+        var portNumber = ((IPEndPoint)fallback.LocalEndpoint).Port;
+        fallback.Stop();
+        return portNumber;
     }
 
     private async Task<bool> WaitForServerAsync(TimeSpan timeout)
@@ -245,118 +338,18 @@ public class PythonProcessManager : IPythonProcessManager, IDisposable
         return false;
     }
 
-    private async Task PeriodicHealthCheckAsync(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            await Task.Delay(HEALTH_CHECK_INTERVAL_MS, ct);
-            if (ct.IsCancellationRequested) break;
-
-            if (!await HealthCheckAsync() && IsRunning)
-            {
-                _logger?.LogWarning("Health check failed for port {Port}.", _actualPort);
-                await TryRestartAsync();
-            }
-        }
-    }
-
-    private async Task TryRestartAsync()
-    {
-        if (_restartCount >= MAX_RESTART_ATTEMPTS)
-        {
-            _logger?.LogError("RailGPT restart limit ({Max}) reached. Giving up.", MAX_RESTART_ATTEMPTS);
-            IsRunning = false;
-            StatusChanged?.Invoke(this, false);
-            return;
-        }
-        _restartCount++;
-        _logger?.LogInformation("Restarting RailGPT (attempt {Attempt}/{Max}).", _restartCount, MAX_RESTART_ATTEMPTS);
-        await StopAsync();
-        await Task.Delay(1000);
-        await StartAsync();
-    }
-
-    private void OnProcessExited(object? sender, EventArgs e)
-    {
-        if (!_disposed)
-        {
-            _logger?.LogWarning("RailGPT process exited (code {Code}).", _process?.ExitCode);
-            IsRunning = false;
-            StatusChanged?.Invoke(this, false);
-        }
-    }
-
-    // ================================================================
-    // Discovery
-    // ================================================================
-
-    private static string? FindPython()
-    {
-        // Priority: known working paths first, then fallback to PATH lookup
-        var candidates = new[]
-        {
-            // Known working anaconda environment (from user memory)
-            @"D:\Users\tomat\anaconda3\python.exe",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                @"anaconda3\python.exe"),
-            // Standard Python installs
-            @"C:\Python314\python.exe",
-            @"C:\Python312\python.exe", @"C:\Python311\python.exe",
-            @"D:\Python312\python.exe", @"D:\Python311\python.exe",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Programs\Python\Python312\python.exe"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                @"Programs\Python\Python311\python.exe"),
-            // Generic PATH lookup (last resort)
-            @"python.exe",
-            "python3",
-            "python",
-        };
-        foreach (var c in candidates)
-        {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = c, Arguments = "--version",
-                    UseShellExecute = false, RedirectStandardOutput = true,
-                    RedirectStandardError = true, CreateNoWindow = true,
-                };
-                using var p = Process.Start(psi);
-                if (p != null)
-                {
-                    p.WaitForExit(5000);
-                    if (p.ExitCode == 0) return c;
-                }
-            }
-            catch { /* candidate not found or not executable */ }
-        }
-        return null;
-    }
-
-    private static string? FindRailGptDirectory()
-    {
-        var candidates = new[]
-        {
-            // Priority: local copy first
-            @"D:\Desktop\RailGo\RailGPT",
-            Path.Combine(AppContext.BaseDirectory, "RailGPT"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "RailGPT"),
-        };
-        foreach (var c in candidates)
-        {
-            if (Directory.Exists(c) && File.Exists(Path.Combine(c, "web_app.py")))
-                return c;
-        }
-        return null;
-    }
-
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
         _healthCts?.Cancel();
+        if (_ownsProcess)
+        {
+            try { StopAsync().GetAwaiter().GetResult(); } catch { }
+        }
         _process?.Dispose();
         _healthCts?.Dispose();
     }
+
+    private sealed record RuntimeInfo(string Directory, string Executable, string? EntryPoint, bool IsPython, string? BridgePipeName);
 }

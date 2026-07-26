@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using RailGo.AI.Models;
@@ -9,6 +10,10 @@ namespace RailGo.AI.Services;
 
 public class AIChatClient : IAIChatClient
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
     private readonly HttpClient _httpClient;
     private readonly IPythonProcessManager _processManager;
     private readonly ILogger<AIChatClient>? _logger;
@@ -80,7 +85,7 @@ public class AIChatClient : IAIChatClient
                 {
                     ev = JsonConvert.DeserializeObject<ChatEvent>(json);
                 }
-                catch (JsonException ex)
+                catch (Newtonsoft.Json.JsonException ex)
                 {
                     _logger?.LogDebug(ex, "Failed to parse SSE event: {Json}", json);
                 }
@@ -99,9 +104,10 @@ public class AIChatClient : IAIChatClient
     {
         try
         {
-            var response = await _httpClient.GetFromJsonAsync<ConversationListResponse>(
-                $"{BaseUrl}/api/conversations", ct);
-            return response?.Conversations ?? new List<ChatConversation>();
+            // RailGPT returns the list directly (not wrapped in a
+            // { conversations: [...] } envelope).
+            return await _httpClient.GetFromJsonAsync<List<ChatConversation>>(
+                $"{BaseUrl}/api/conversations", JsonOptions, ct) ?? new();
         }
         catch (Exception ex)
         {
@@ -116,7 +122,7 @@ public class AIChatClient : IAIChatClient
         {
             var response = await _httpClient.PostAsync($"{BaseUrl}/api/conversations", null, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<ChatConversationDetail>(cancellationToken: ct);
+            return await response.Content.ReadFromJsonAsync<ChatConversationDetail>(JsonOptions, ct);
         }
         catch (Exception ex)
         {
@@ -135,7 +141,7 @@ public class AIChatClient : IAIChatClient
                 response = await _httpClient.GetAsync($"{BaseUrl}/api/conversations/{cid}", ct);
 
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<ChatConversationDetail>(cancellationToken: ct);
+            return await response.Content.ReadFromJsonAsync<ChatConversationDetail>(JsonOptions, ct);
         }
         catch (Exception ex)
         {

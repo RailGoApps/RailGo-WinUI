@@ -51,7 +51,7 @@ if (-not $restoreSucceeded) {
 dotnet publish $projectPath `
     -c $Configuration `
     -r $RuntimeIdentifier `
-    -f net8.0-windows10.0.22621.0 `
+    -f net8.0-windows10.0.26100.0 `
     --self-contained true `
     -p:WindowsPackageType=None `
     -p:WindowsAppSDKSelfContained=true `

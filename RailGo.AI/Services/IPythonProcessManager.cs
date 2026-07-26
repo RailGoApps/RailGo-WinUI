@@ -8,6 +8,9 @@ public interface IPythonProcessManager
     /// <summary>Base URL of the running Flask server (e.g. http://localhost:5033).</summary>
     string BaseUrl { get; }
 
+    /// <summary>Human-readable runtime location used by diagnostics.</summary>
+    string RuntimeDescription { get; }
+
     /// <summary>Whether the Python backend is running and healthy.</summary>
     bool IsRunning { get; }
 

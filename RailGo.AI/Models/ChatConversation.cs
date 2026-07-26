@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace RailGo.AI.Models;
 
 /// <summary>
@@ -5,10 +7,15 @@ namespace RailGo.AI.Models;
 /// </summary>
 public class ChatConversation
 {
+    [JsonPropertyName("id")]
     public int Id { get; set; }
+    [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
+    [JsonPropertyName("created")]
     public DateTime CreatedAt { get; set; }
+    [JsonPropertyName("updated")]
     public DateTime UpdatedAt { get; set; }
+    [JsonPropertyName("message_count")]
     public int MessageCount { get; set; }
 
     /// <summary>Formatted updated-at string for display (relative or absolute).</summary>

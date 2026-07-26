@@ -62,6 +62,17 @@
     </None>
   </ItemGroup>
 
+  <!-- RailGPT is an in-repository runtime module. Keeping it as Content
+       lets development use server_entry.py and lets release builds include
+       the PyInstaller RailGPT.Runtime.exe when it is present. -->
+  <ItemGroup>
+    <Content Include="..\RailGPT\**\*"
+             Exclude="..\RailGPT\**\__pycache__\**;..\RailGPT\**\*.pyc;..\RailGPT\**\*.db;..\RailGPT\**\hf_cache\**;..\RailGPT\**\build\**;..\RailGPT\**\dist\**;..\RailGPT\**\release\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
   <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <ProjectCapability Include="Msix" />
   </ItemGroup>
