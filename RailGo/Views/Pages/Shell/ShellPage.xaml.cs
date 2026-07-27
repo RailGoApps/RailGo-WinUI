@@ -163,6 +163,7 @@ public sealed partial class ShellPage : Page
         {
             _activeConversationId = null;
             NavigationViewControl.SelectedItem = RailGPTNewChatNavItem;
+            ViewModel.Selected = RailGPTNewChatNavItem;
         }
     }
 
@@ -187,12 +188,18 @@ public sealed partial class ShellPage : Page
 
     private void SelectConversationItem(int conversationId)
     {
-        NavigationViewControl.SelectedItem = _conversationItems.FirstOrDefault(
+        var selectedItem = _conversationItems.FirstOrDefault(
             item => string.Equals(
                 item.Tag?.ToString(),
                 $"chat:{conversationId}",
                 StringComparison.OrdinalIgnoreCase))
             ?? RailGPTNewChatNavItem;
+
+        // NavigationView is bound one-way to ShellViewModel.Selected. Keep
+        // the source and target in sync when a history item is selected from
+        // our custom conversation handler, especially after leaving Home.
+        ViewModel.Selected = selectedItem;
+        NavigationViewControl.SelectedItem = selectedItem;
     }
 
     private void OnBackendStatusChanged(object? sender, RailGptRuntimeStatus status)
