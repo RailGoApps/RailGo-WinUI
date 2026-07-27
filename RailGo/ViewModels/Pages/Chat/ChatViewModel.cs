@@ -58,6 +58,11 @@ public partial class ChatViewModel : ObservableObject, INavigationAware
         // remain alive so returning to RailGPT does not rebuild Chromium.
     }
 
+    public void SelectConversation(int conversationId)
+    {
+        ConversationId = conversationId;
+    }
+
     public async Task<RailGptStartResult> RetryAsync(CancellationToken cancellationToken = default)
         => await _startupCoordinator.RetryAsync(cancellationToken);
 

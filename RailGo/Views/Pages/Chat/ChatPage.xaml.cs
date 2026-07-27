@@ -45,6 +45,19 @@ public sealed partial class ChatPage : Page
         ViewModel.RuntimeStatusChanged += OnRuntimeStatusChanged;
     }
 
+    public void LoadConversation(int conversationId)
+    {
+        if (_pendingConversationId == conversationId &&
+            ViewModel.ConversationId == conversationId)
+        {
+            return;
+        }
+
+        _pendingConversationId = conversationId;
+        ViewModel.SelectConversation(conversationId);
+        SendConversationRequest(conversationId);
+    }
+
     private void OnWorkspacePrepared(RailGptStartResult result, int? conversationId)
     {
         _pendingConversationId = conversationId;

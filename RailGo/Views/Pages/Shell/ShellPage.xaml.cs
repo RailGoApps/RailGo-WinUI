@@ -123,7 +123,6 @@ public sealed partial class ShellPage : Page
                 return;
             }
 
-            var navigationKey = typeof(ChatViewModel).FullName!;
             if (tag == "chat:new")
             {
                 if (!await EnsureBackendAsync())
@@ -134,16 +133,14 @@ public sealed partial class ShellPage : Page
                     return;
 
                 await LoadConversationItemsAsync();
-                ViewModel.NavigationService.NavigateTo(navigationKey, conversation.Id);
+                OpenConversation(conversation.Id);
                 return;
             }
 
             if (tag.StartsWith("chat:", StringComparison.OrdinalIgnoreCase) &&
                 int.TryParse(tag[5..], out var cid))
             {
-                // ChatPage awaits the shared startup task and shows a native
-                // loading state if the warm-up has not completed yet.
-                ViewModel.NavigationService.NavigateTo(navigationKey, cid);
+                OpenConversation(cid);
             }
         }
         catch (Exception ex)
@@ -160,15 +157,42 @@ public sealed partial class ShellPage : Page
         if (e.Parameter is int cid)
         {
             _activeConversationId = cid;
-            NavigationViewControl.SelectedItem = _conversationItems.FirstOrDefault(
-                item => string.Equals(item.Tag?.ToString(), $"chat:{cid}", StringComparison.OrdinalIgnoreCase))
-                ?? RailGPTNewChatNavItem;
+            SelectConversationItem(cid);
         }
         else
         {
             _activeConversationId = null;
             NavigationViewControl.SelectedItem = RailGPTNewChatNavItem;
         }
+    }
+
+    private void OpenConversation(int conversationId)
+    {
+        _activeConversationId = conversationId;
+        SelectConversationItem(conversationId);
+
+        // A conversation switch is workspace state, not WinUI navigation.
+        // Keep the cached ChatPage and its WebView2 alive instead of adding a
+        // new Frame entry and replaying the page transition for every click.
+        if (NavigationFrame.Content is ChatPage chatPage)
+        {
+            chatPage.LoadConversation(conversationId);
+            return;
+        }
+
+        // ChatPage awaits the shared startup task and shows a native loading
+        // state if the warm-up has not completed yet.
+        ViewModel.NavigationService.NavigateTo(typeof(ChatViewModel).FullName!, conversationId);
+    }
+
+    private void SelectConversationItem(int conversationId)
+    {
+        NavigationViewControl.SelectedItem = _conversationItems.FirstOrDefault(
+            item => string.Equals(
+                item.Tag?.ToString(),
+                $"chat:{conversationId}",
+                StringComparison.OrdinalIgnoreCase))
+            ?? RailGPTNewChatNavItem;
     }
 
     private void OnBackendStatusChanged(object? sender, RailGptRuntimeStatus status)

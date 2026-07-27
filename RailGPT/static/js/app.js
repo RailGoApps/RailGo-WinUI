@@ -594,10 +594,14 @@ async function newConversation() {
 async function selectConversation(cid) {
   if (state.busy) return false;
 
-  // Fade out messages area before loading new conversation
+  if (state.currentCid === cid) return true;
+
+  const embedded = document.body.classList.contains("embedded");
   const messagesEl = $("#messages");
-  messagesEl.classList.add("fade-out");
-  await new Promise(r => setTimeout(r, 200));
+  if (!embedded) {
+    messagesEl.classList.add("fade-out");
+    await new Promise(r => setTimeout(r, 200));
+  }
 
   const data = await apiPost(`/api/conversations/${cid}/load`, {});
   if (data.error) {
@@ -611,12 +615,13 @@ async function selectConversation(cid) {
     if (msg.role === "user") addUserBubble(msg.content);
     else addAiBubble(msg.content, msg.attachments || []);
   }
-  await loadConvList();
+  if (!embedded) await loadConvList();
 
-  // Fade in messages area
-  messagesEl.classList.remove("fade-out");
-  messagesEl.classList.add("fade-in");
-  messagesEl.addEventListener("animationend", () => messagesEl.classList.remove("fade-in"), { once: true });
+  if (!embedded) {
+    messagesEl.classList.remove("fade-out");
+    messagesEl.classList.add("fade-in");
+    messagesEl.addEventListener("animationend", () => messagesEl.classList.remove("fade-in"), { once: true });
+  }
   return true;
 }
 
