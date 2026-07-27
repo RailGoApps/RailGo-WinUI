@@ -1,0 +1,88 @@
+name: RailGPT x64 PR artifact
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/railgpt-pr.yml'
+      - 'RailGo/**'
+      - 'RailGo.AI/**'
+      - 'RailGo.Core/**'
+      - 'RailGPT/**'
+      - 'packaging/**'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  x64-unpackaged:
+    runs-on: windows-2022
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install Python 3.12 x64
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+          cache: 'pip'
+          cache-dependency-path: |
+            RailGPT/requirements.txt
+            RailGPT/requirements-dev.txt
+
+      - name: Build RailGPT Runtime
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r RailGPT/requirements-dev.txt
+          ./packaging/build-railgpt-runtime.ps1 -Python python
+
+      - name: Verify Runtime without Python on PATH
+        shell: pwsh
+        run: |
+          $env:Path = (($env:Path -split ';') |
+            Where-Object { $_ -notmatch '(?i)python' }) -join ';'
+          ./packaging/test-railgpt-runtime.ps1
+
+      - name: Restore and publish self-contained x64 app
+        shell: pwsh
+        run: |
+          dotnet restore RailGo/RailGo.csproj -r win-x64 -p:Platform=x64
+          dotnet publish RailGo/RailGo.csproj `
+            -c Release `
+            -r win-x64 `
+            -p:Platform=x64 `
+            -p:WindowsPackageType=None `
+            -p:WindowsAppSDKSelfContained=true `
+            -p:PublishSingleFile=false `
+            -p:PublishTrimmed=false `
+            --self-contained true `
+            --no-restore `
+            -o artifacts/publish/win-x64
+
+      - name: Validate packaged Runtime and create ZIP
+        shell: pwsh
+        run: |
+          $runtime = "artifacts/publish/win-x64/RailGPT/RailGPT.Runtime.exe"
+          if (-not (Test-Path $runtime)) {
+            throw "RailGPT.Runtime.exe is missing from the x64 publish output."
+          }
+          Compress-Archive `
+            -Path "artifacts/publish/win-x64/*" `
+            -DestinationPath "artifacts/RailGo-RailGPT-win-x64.zip" `
+            -CompressionLevel Optimal
+
+      - name: Upload x64 unpackaged ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: RailGo-RailGPT-win-x64
+          path: artifacts/RailGo-RailGPT-win-x64.zip
+          if-no-files-found: error

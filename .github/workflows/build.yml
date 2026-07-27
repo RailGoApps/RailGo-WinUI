@@ -42,6 +42,26 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
+    - name: Install Python 3.12 x64
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        architecture: 'x64'
+        cache: 'pip'
+        cache-dependency-path: |
+          RailGPT/requirements.txt
+          RailGPT/requirements-dev.txt
+
+    - name: Build and smoke-test RailGPT Runtime
+      shell: pwsh
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r RailGPT/requirements-dev.txt
+        ./packaging/build-railgpt-runtime.ps1 -Python python
+        $env:Path = (($env:Path -split ';') |
+          Where-Object { $_ -notmatch '(?i)python' }) -join ';'
+        ./packaging/test-railgpt-runtime.ps1
+
     - name: Setup MSBuild.exe
       uses: microsoft/setup-msbuild@v1.1
 
@@ -82,6 +102,28 @@ jobs:
         $msixFiles = Get-ChildItem -Path "RailGo/AppxPackages/*/*.msix"
         foreach ($file in $msixFiles) {
             Move-Item $file.FullName $PackagesDir
+        }
+
+        $x64Package = Get-ChildItem -Path "$PackagesDir\*.msix" |
+          Where-Object { $_.Name -match 'x64' } |
+          Select-Object -First 1
+        if (-not $x64Package) {
+          throw "The x64 MSIX package was not produced."
+        }
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($x64Package.FullName)
+        try {
+          $runtimeEntry = $archive.Entries |
+            Where-Object {
+              $_.FullName.Replace('\', '/') -eq 'RailGPT/RailGPT.Runtime.exe'
+            } |
+            Select-Object -First 1
+          if (-not $runtimeEntry -or $runtimeEntry.Length -eq 0) {
+            throw "RailGPT.Runtime.exe is missing from the x64 MSIX package."
+          }
+        }
+        finally {
+          $archive.Dispose()
         }
     
     - name: Sign .msix

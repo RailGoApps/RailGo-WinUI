@@ -148,7 +148,10 @@ public partial class App : Application
             // AI Services (RailGPT integration)
             services.AddSingleton<HttpClient>();
             services.AddSingleton<IRailGoBridgeHost, RailGoBridgeServer>();
-            services.AddSingleton<IPythonProcessManager, PythonProcessManager>();
+            services.AddSingleton<IRailGptDiagnostics, RailGptDiagnostics>();
+            services.AddSingleton<IRailGptRuntimeManager, RailGptRuntimeManager>();
+            services.AddSingleton<IRailGptStartupCoordinator, RailGptStartupCoordinator>();
+            services.AddSingleton<IRailGptConversationIndexReader, RailGptConversationIndexReader>();
             services.AddSingleton<IAIChatClient, AIChatClient>();
             services.AddSingleton<AISettingsService>();
             services.AddTransient<ChatViewModel>();
@@ -164,21 +167,13 @@ public partial class App : Application
         UnhandledException += App_UnhandledException;
     }
 
-    private async void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
-        e.Handled = true; 
-
+        App.GetService<IRailGptDiagnostics>().Error("Unhandled WinUI exception.", e.Exception);
         System.Diagnostics.Debug.WriteLine($"未处理异常: {e.Exception}");
-
-        await MainWindow.DispatcherQueue.EnqueueAsync(async () =>
-        {
-            var exceptionDialog = new ExceptionDialog(e.Exception)
-            {
-                XamlRoot = MainWindow.Content.XamlRoot
-            };
-
-            await exceptionDialog.ShowAsync();
-        });
+        // Unknown UI exceptions are not marked handled. Swallowing them can
+        // leave the visual tree alive in a corrupted white-screen state.
+        e.Handled = false;
     }
 
     public static class Global

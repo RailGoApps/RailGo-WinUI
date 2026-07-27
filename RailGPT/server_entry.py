@@ -11,6 +11,14 @@ import sys
 
 
 def main() -> int:
+    # A frozen console process inherits the legacy Windows code page even
+    # when output is redirected by RailGo. Agent startup logs contain Unicode
+    # symbols, so normalize streams before importing any RailGPT modules.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="replace")
+
     project_root = os.path.dirname(os.path.abspath(__file__))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)

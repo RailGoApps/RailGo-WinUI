@@ -11,15 +11,15 @@ namespace RailGo.AI.Services;
 public class AISettingsService
 {
     private readonly HttpClient _httpClient;
-    private readonly IPythonProcessManager _processManager;
+    private readonly IRailGptRuntimeManager _runtimeManager;
 
-    public AISettingsService(HttpClient httpClient, IPythonProcessManager processManager)
+    public AISettingsService(HttpClient httpClient, IRailGptRuntimeManager runtimeManager)
     {
         _httpClient = httpClient;
-        _processManager = processManager;
+        _runtimeManager = runtimeManager;
     }
 
-    private string BaseUrl => _processManager.BaseUrl;
+    private string BaseUrl => _runtimeManager.BaseUrl;
 
     /// <summary>
     /// Fetch current RailGPT API settings from the Python backend.
@@ -27,7 +27,7 @@ public class AISettingsService
     /// </summary>
     public async Task<AISettingsPayload?> GetSettingsAsync()
     {
-        if (!_processManager.IsRunning) return null;
+        if (!_runtimeManager.Status.IsReady) return null;
 
         try
         {
@@ -53,7 +53,7 @@ public class AISettingsService
         string? primaryApiKey,
         string? thinkingApiKey)
     {
-        if (!_processManager.IsRunning)
+        if (!_runtimeManager.Status.IsReady)
             throw new InvalidOperationException("RailGPT 后端未运行");
 
         var body = new Dictionary<string, object> { ["provider"] = provider };
@@ -79,7 +79,7 @@ public class AISettingsService
     /// </summary>
     public async Task<AISettingsPayload?> DeleteApiKeyAsync(string slot = "primary")
     {
-        if (!_processManager.IsRunning)
+        if (!_runtimeManager.Status.IsReady)
             throw new InvalidOperationException("RailGPT 后端未运行");
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));

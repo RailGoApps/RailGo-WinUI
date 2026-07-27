@@ -21,25 +21,35 @@ namespace RailGo.Views.Pages.Shell;
 public sealed partial class ShellPage : Page
 {
     private readonly IBackgroundImageService _backgroundImageService;
-    private readonly IPythonProcessManager _processManager;
+    private readonly IRailGptRuntimeManager _runtimeManager;
+    private readonly IRailGptStartupCoordinator _startupCoordinator;
+    private readonly IRailGptConversationIndexReader _conversationIndexReader;
+    private readonly IRailGptDiagnostics _diagnostics;
     private readonly IAIChatClient _chatClient;
     private readonly List<NavigationViewItem> _conversationItems = new();
     private bool _loadingConversations;
-    private Task? _backendStartTask;
     private int? _activeConversationId;
     private bool _hostEventsRegistered;
+    private bool _keyboardAcceleratorsRegistered;
+    private bool _chatBusy;
 
     public ShellViewModel ViewModel { get; }
 
     public ShellPage(
         ShellViewModel viewModel,
         IBackgroundImageService backgroundImageService,
-        IPythonProcessManager processManager,
+        IRailGptRuntimeManager runtimeManager,
+        IRailGptStartupCoordinator startupCoordinator,
+        IRailGptConversationIndexReader conversationIndexReader,
+        IRailGptDiagnostics diagnostics,
         IAIChatClient chatClient)
     {
         ViewModel = viewModel;
         _backgroundImageService = backgroundImageService;
-        _processManager = processManager;
+        _runtimeManager = runtimeManager;
+        _startupCoordinator = startupCoordinator;
+        _conversationIndexReader = conversationIndexReader;
+        _diagnostics = diagnostics;
         _chatClient = chatClient;
         InitializeComponent();
         Unloaded += OnUnloaded;
@@ -56,14 +66,20 @@ public sealed partial class ShellPage : Page
         RegisterHostEvents();
 
         TitleBarHelper.UpdateTitleBar(RequestedTheme);
-        KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.Left, VirtualKeyModifiers.Menu));
-        KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.GoBack));
+        if (!_keyboardAcceleratorsRegistered)
+        {
+            KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.Left, VirtualKeyModifiers.Menu));
+            KeyboardAccelerators.Add(BuildKeyboardAccelerator(VirtualKey.GoBack));
+            _keyboardAcceleratorsRegistered = true;
+        }
 
         _backgroundImageService.BackgroundImageChanged -= OnBackgroundImageChanged;
         _backgroundImageService.BackgroundImageChanged += OnBackgroundImageChanged;
         _ = ApplyBackgroundImageAsync(_backgroundImageService.BackgroundImagePath);
 
-        _ = InitializeConversationNavigationAsync();
+        _conversationIndexReader.Start();
+        RenderConversationItems(_conversationIndexReader.LastKnownConversations);
+        _ = RefreshConversationIndexObservedAsync();
     }
 
     private void RegisterHostEvents()
@@ -73,8 +89,10 @@ public sealed partial class ShellPage : Page
 
         NavigationViewControl.ItemInvoked += OnHostItemInvoked;
         ViewModel.NavigationService.Navigated += OnHostNavigated;
-        _processManager.StatusChanged += OnBackendStatusChanged;
+        _runtimeManager.StatusChanged += OnBackendStatusChanged;
+        _conversationIndexReader.ConversationsChanged += OnIndexedConversationsChanged;
         _chatClient.ConversationsChanged += OnConversationsChanged;
+        _chatClient.BusyChanged += OnChatBusyChanged;
         _hostEventsRegistered = true;
     }
 
@@ -85,35 +103,52 @@ public sealed partial class ShellPage : Page
 
         NavigationViewControl.ItemInvoked -= OnHostItemInvoked;
         ViewModel.NavigationService.Navigated -= OnHostNavigated;
-        _processManager.StatusChanged -= OnBackendStatusChanged;
+        _runtimeManager.StatusChanged -= OnBackendStatusChanged;
+        _conversationIndexReader.ConversationsChanged -= OnIndexedConversationsChanged;
         _chatClient.ConversationsChanged -= OnConversationsChanged;
+        _chatClient.BusyChanged -= OnChatBusyChanged;
         _hostEventsRegistered = false;
     }
 
     private async void OnHostItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
-        if (args.InvokedItemContainer is not NavigationViewItem item || item.Tag is not string tag)
-            return;
-
-        var navigationKey = typeof(ChatViewModel).FullName!;
-        if (tag == "chat:new")
+        try
         {
-            if (!await EnsureBackendAsync())
+            if (args.InvokedItemContainer is not NavigationViewItem item || item.Tag is not string tag)
                 return;
 
-            var conversation = await _chatClient.CreateConversationAsync();
-            if (conversation == null)
+            if (_chatBusy && tag.StartsWith("chat:", StringComparison.OrdinalIgnoreCase))
+            {
+                await ShowBusyDialogAsync();
                 return;
+            }
 
-            await LoadConversationItemsAsync();
-            ViewModel.NavigationService.NavigateTo(navigationKey, conversation.Id);
-            return;
+            var navigationKey = typeof(ChatViewModel).FullName!;
+            if (tag == "chat:new")
+            {
+                if (!await EnsureBackendAsync())
+                    return;
+
+                var conversation = await _chatClient.CreateConversationAsync();
+                if (conversation == null)
+                    return;
+
+                await LoadConversationItemsAsync();
+                ViewModel.NavigationService.NavigateTo(navigationKey, conversation.Id);
+                return;
+            }
+
+            if (tag.StartsWith("chat:", StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(tag[5..], out var cid))
+            {
+                // ChatPage awaits the shared startup task and shows a native
+                // loading state if the warm-up has not completed yet.
+                ViewModel.NavigationService.NavigateTo(navigationKey, cid);
+            }
         }
-
-        if (tag.StartsWith("chat:", StringComparison.OrdinalIgnoreCase) &&
-            int.TryParse(tag[5..], out var cid))
+        catch (Exception ex)
         {
-            ViewModel.NavigationService.NavigateTo(navigationKey, cid);
+            _diagnostics.Error("RailGPT navigation command failed.", ex);
         }
     }
 
@@ -136,9 +171,9 @@ public sealed partial class ShellPage : Page
         }
     }
 
-    private void OnBackendStatusChanged(object? sender, bool running)
+    private void OnBackendStatusChanged(object? sender, RailGptRuntimeStatus status)
     {
-        if (!running)
+        if (!status.IsReady)
             return;
         DispatcherQueue.TryEnqueue(() => _ = LoadConversationItemsAsync());
     }
@@ -146,16 +181,30 @@ public sealed partial class ShellPage : Page
     private void OnConversationsChanged(object? sender, EventArgs e) =>
         DispatcherQueue.TryEnqueue(() => _ = LoadConversationItemsAsync());
 
+    private void OnIndexedConversationsChanged(
+        object? sender,
+        IReadOnlyList<ChatConversation> conversations) =>
+        DispatcherQueue.TryEnqueue(() => RenderConversationItems(conversations));
+
+    private void OnChatBusyChanged(object? sender, bool busy) =>
+        DispatcherQueue.TryEnqueue(() => _chatBusy = busy);
+
     private async Task LoadConversationItemsAsync()
     {
-        if (_loadingConversations || !_processManager.IsRunning)
+        if (_loadingConversations)
             return;
 
         _loadingConversations = true;
         try
         {
-            var conversations = await _chatClient.GetConversationsAsync();
+            var conversations = _runtimeManager.Status.IsReady
+                ? await _chatClient.GetConversationsAsync()
+                : (await _conversationIndexReader.RefreshAsync()).ToList();
             DispatcherQueue.TryEnqueue(() => RenderConversationItems(conversations));
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.Error("Failed to refresh RailGPT conversations.", ex);
         }
         finally
         {
@@ -163,22 +212,34 @@ public sealed partial class ShellPage : Page
         }
     }
 
-    private async Task InitializeConversationNavigationAsync()
+    private async Task RefreshConversationIndexObservedAsync()
     {
-        if (await EnsureBackendAsync())
-            await LoadConversationItemsAsync();
+        try
+        {
+            await _conversationIndexReader.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.Error("Failed to load native RailGPT conversation index.", ex);
+        }
     }
 
     private async Task<bool> EnsureBackendAsync()
     {
-        if (_processManager.IsRunning)
-            return true;
+        var result = await _startupCoordinator.StartAsync();
+        return result.Success;
+    }
 
-        _backendStartTask ??= _processManager.StartAsync();
-        await _backendStartTask;
-        if (!_processManager.IsRunning)
-            _backendStartTask = null;
-        return _processManager.IsRunning;
+    private async Task ShowBusyDialogAsync()
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "RailGPT 正在生成回答",
+            Content = "请等待当前回答完成后再新建、删除或切换会话。",
+            CloseButtonText = "知道了",
+        };
+        await dialog.ShowAsync();
     }
 
     private void RenderConversationItems(IReadOnlyList<ChatConversation> conversations)
@@ -218,22 +279,44 @@ public sealed partial class ShellPage : Page
             Text = "重命名",
             Icon = new FontIcon { Glyph = "\uE70F" },
         };
-        rename.Click += async (_, _) => await RenameConversationAsync(conversation);
+        rename.Click += (_, _) =>
+            _ = ExecuteConversationCommandObservedAsync(() => RenameConversationAsync(conversation));
 
         var delete = new MenuFlyoutItem
         {
             Text = "删除",
             Icon = new FontIcon { Glyph = "\uE74D" },
         };
-        delete.Click += async (_, _) => await DeleteConversationAsync(conversation);
+        delete.Click += (_, _) =>
+            _ = ExecuteConversationCommandObservedAsync(() => DeleteConversationAsync(conversation));
 
         menu.Items.Add(rename);
         menu.Items.Add(delete);
         return menu;
     }
 
+    private async Task ExecuteConversationCommandObservedAsync(Func<Task> command)
+    {
+        try
+        {
+            await command();
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.Error("RailGPT conversation command failed.", ex);
+        }
+    }
+
     private async Task RenameConversationAsync(ChatConversation conversation)
     {
+        if (_chatBusy)
+        {
+            await ShowBusyDialogAsync();
+            return;
+        }
+        if (!await EnsureBackendAsync())
+            return;
+
         var input = new TextBox
         {
             Text = conversation.Title,
@@ -258,6 +341,14 @@ public sealed partial class ShellPage : Page
 
     private async Task DeleteConversationAsync(ChatConversation conversation)
     {
+        if (_chatBusy)
+        {
+            await ShowBusyDialogAsync();
+            return;
+        }
+        if (!await EnsureBackendAsync())
+            return;
+
         var title = string.IsNullOrWhiteSpace(conversation.Title) ? "新对话" : conversation.Title;
         var dialog = new ContentDialog
         {

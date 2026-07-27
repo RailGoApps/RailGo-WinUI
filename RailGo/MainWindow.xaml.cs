@@ -8,6 +8,7 @@ using Windows.UI.ViewManagement;
 using RailGo.ViewModels.Pages.Shell;
 using RailGo.Views.Pages.Shell;
 using RailGo.Contracts.Services;
+using RailGo.AI.Services;
 
 namespace RailGo;
 
@@ -35,6 +36,7 @@ public sealed partial class MainWindow : WindowEx
         dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         settings = new UISettings();
         settings.ColorValuesChanged += Settings_ColorValuesChanged;
+        Closed += OnMainWindowClosed;
     }
 
     private void Tab_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args)
@@ -57,5 +59,23 @@ public sealed partial class MainWindow : WindowEx
     {
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(DragAreaGrid);
+    }
+
+    private void OnMainWindowClosed(object sender, WindowEventArgs args)
+    {
+        settings.ColorValuesChanged -= Settings_ColorValuesChanged;
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            // Closed is raised on the UI thread. Run the async shutdown on a
+            // worker so its continuations cannot deadlock against that thread.
+            Task.Run(() => App.GetService<IRailGptRuntimeManager>().StopAsync(timeout.Token))
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch
+        {
+            // The runtime manager performs a final owned-process cleanup in Dispose.
+        }
     }
 }

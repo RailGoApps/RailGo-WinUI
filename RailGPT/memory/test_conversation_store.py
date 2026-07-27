@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import threading
 import unittest
 
 from memory.conversation_store import ConversationStore, DEFAULT_NEW_TITLE
@@ -36,6 +37,23 @@ class ConversationStoreTest(unittest.TestCase):
         self.assertEqual(store.title, DEFAULT_NEW_TITLE)
         self.assertEqual(llm.generate_called, 0)
         self.assertEqual(scheduled, [(cid, "南京南到徐州东最快的车")])
+
+    def test_concurrent_new_conversations_allocate_unique_ids(self):
+        store, root_dir = self.make_store()
+        threads = [threading.Thread(target=store.new_conversation) for _ in range(20)]
+
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        with open(os.path.join(root_dir, "index.json"), "r", encoding="utf-8") as handle:
+            index = json.load(handle)
+
+        self.assertEqual(
+            sorted(item["id"] for item in index),
+            list(range(1, 21)),
+        )
 
     def test_append_user_schedules_async_title_for_placeholder_conversation(self):
         store, _ = self.make_store()

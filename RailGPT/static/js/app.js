@@ -592,7 +592,7 @@ async function newConversation() {
 }
 
 async function selectConversation(cid) {
-  if (state.busy) return;
+  if (state.busy) return false;
 
   // Fade out messages area before loading new conversation
   const messagesEl = $("#messages");
@@ -602,7 +602,7 @@ async function selectConversation(cid) {
   const data = await apiPost(`/api/conversations/${cid}/load`, {});
   if (data.error) {
     messagesEl.classList.remove("fade-out");
-    return;
+    return false;
   }
   state.currentCid = cid;
   state.currentAiText = "";
@@ -617,6 +617,7 @@ async function selectConversation(cid) {
   messagesEl.classList.remove("fade-out");
   messagesEl.classList.add("fade-in");
   messagesEl.addEventListener("animationend", () => messagesEl.classList.remove("fade-in"), { once: true });
+  return true;
 }
 
 async function deleteConversation(cid) {
@@ -1047,6 +1048,9 @@ function toggleRightObserver() {
 function setBusy(busy) {
   state.busy = busy;
   updateInputAvailability();
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage({ type: "busy.changed", busy: Boolean(busy) });
+  }
 }
 
 // ============================================================
@@ -1422,6 +1426,64 @@ async function loadSuggestions() {
 // ============================================================
 // Init
 // ============================================================
+let _hostConversationRequest = null;
+let _hostConversationPumpRunning = false;
+
+async function _pumpHostConversationRequests() {
+  if (_hostConversationPumpRunning) return;
+  _hostConversationPumpRunning = true;
+  try {
+    while (_hostConversationRequest) {
+      const request = _hostConversationRequest;
+      _hostConversationRequest = null;
+
+      if (state.busy) {
+        window.chrome.webview.postMessage({
+          type: "conversation.error",
+          requestId: request.requestId,
+          conversationId: request.conversationId,
+          message: "当前回答仍在生成，请稍后再切换会话。",
+        });
+        continue;
+      }
+
+      try {
+        const loaded = await selectConversation(request.conversationId);
+        window.chrome.webview.postMessage({
+          type: loaded ? "conversation.loaded" : "conversation.error",
+          requestId: request.requestId,
+          conversationId: request.conversationId,
+          message: loaded ? "" : "会话不存在或加载失败。",
+        });
+      } catch (error) {
+        window.chrome.webview.postMessage({
+          type: "conversation.error",
+          requestId: request.requestId,
+          conversationId: request.conversationId,
+          message: String(error && error.message ? error.message : error),
+        });
+      }
+    }
+  } finally {
+    _hostConversationPumpRunning = false;
+    if (_hostConversationRequest) _pumpHostConversationRequests();
+  }
+}
+
+if (window.chrome && window.chrome.webview) {
+  window.chrome.webview.addEventListener("message", event => {
+    const message = event.data || {};
+    if (message.type !== "conversation.load") return;
+    const conversationId = Number.parseInt(message.conversationId, 10);
+    if (!Number.isInteger(conversationId) || conversationId <= 0) return;
+    _hostConversationRequest = {
+      requestId: String(message.requestId || ""),
+      conversationId,
+    };
+    _pumpHostConversationRequests();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
 
   const embeddedParams = new URLSearchParams(window.location.search);

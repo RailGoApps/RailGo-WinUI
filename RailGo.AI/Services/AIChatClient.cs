@@ -15,22 +15,24 @@ public class AIChatClient : IAIChatClient
         PropertyNameCaseInsensitive = true,
     };
     private readonly HttpClient _httpClient;
-    private readonly IPythonProcessManager _processManager;
+    private readonly IRailGptRuntimeManager _runtimeManager;
     private readonly ILogger<AIChatClient>? _logger;
 
-    public string BaseUrl => _processManager.BaseUrl;
+    public string BaseUrl => _runtimeManager.BaseUrl;
     public event EventHandler? ConversationsChanged;
+    public event EventHandler<bool>? BusyChanged;
 
-    public AIChatClient(HttpClient httpClient, IPythonProcessManager processManager, ILogger<AIChatClient>? logger = null)
+    public AIChatClient(HttpClient httpClient, IRailGptRuntimeManager runtimeManager, ILogger<AIChatClient>? logger = null)
     {
         // Create a dedicated HttpClient for AI streaming requests
         // (the shared singleton may have already sent requests, preventing property changes)
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        _processManager = processManager;
+        _runtimeManager = runtimeManager;
         _logger = logger;
     }
 
     public void NotifyConversationsChanged() => ConversationsChanged?.Invoke(this, EventArgs.Empty);
+    public void NotifyBusyChanged(bool busy) => BusyChanged?.Invoke(this, busy);
 
     public async IAsyncEnumerable<ChatEvent> SendMessageAsync(string text, [EnumeratorCancellation] CancellationToken ct = default)
     {

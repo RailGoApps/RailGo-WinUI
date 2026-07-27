@@ -65,10 +65,26 @@ class ConversationStore:
 
     def _save_index(self):
         """
-        Persist index.json
+        Persist index.json atomically so the native RailGo shell never reads
+        a partially written conversation list.
         """
-        with open(self.index_path, "w", encoding="utf-8") as f:
-            json.dump(self.index, f, ensure_ascii=False, indent=2)
+        with self._lock:
+            temp_path = (
+                f"{self.index_path}.{os.getpid()}."
+                f"{threading.get_ident()}.tmp"
+            )
+            try:
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    json.dump(self.index, f, ensure_ascii=False, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(temp_path, self.index_path)
+            finally:
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError:
+                        pass
 
     def set_on_change(self, callback: Optional[Callable[[], None]]):
         self._change_callback = callback
@@ -87,24 +103,25 @@ class ConversationStore:
         """
         Update or insert index entry.
         """
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        with self._lock:
+            now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        for item in self.index:
-            if item["id"] == cid:
-                item["title"] = title
-                item["updated"] = now
-                self._save_index()
-                return
+            for item in self.index:
+                if item["id"] == cid:
+                    item["title"] = title
+                    item["updated"] = now
+                    self._save_index()
+                    return
 
-        # New entry
-        self.index.append({
-            "id": cid,
-            "title": title,
-            "updated": now
-        })
+            # New entry
+            self.index.append({
+                "id": cid,
+                "title": title,
+                "updated": now
+            })
 
-        self.index.sort(key=lambda x: x["updated"],reverse=True)
-        self._save_index()
+            self.index.sort(key=lambda x: x["updated"], reverse=True)
+            self._save_index()
 
     # ============================================================
     # Path Helpers
@@ -216,7 +233,10 @@ class ConversationStore:
             self.messages = []
             self.title = DEFAULT_NEW_TITLE
             self.memory_state = {}
-        self._save()
+            # Keep ID allocation and the first durable write atomic. Flask is
+            # threaded, so concurrent create requests must not reuse an ID or
+            # save another request's shared current session.
+            self._save()
 
         if first_user_text.strip():
             self._schedule_title_update(first_user_text, cid=cid)

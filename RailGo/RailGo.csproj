@@ -9,11 +9,11 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;arm64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <PublishProfile>Properties\PublishProfiles\win10-$(Platform).pubxml</PublishProfile>
 	<ImplicitUsings>enable</ImplicitUsings>
 	<Nullable>enable</Nullable>
 	<UseWinUI>true</UseWinUI>
-	<WindowsAppSdkBootstrapInitialize>true</WindowsAppSdkBootstrapInitialize>
+	<WindowsAppSdkBootstrapInitialize Condition="'$(WindowsAppSDKSelfContained)' != 'true'">true</WindowsAppSdkBootstrapInitialize>
+	<WindowsAppSdkBootstrapInitialize Condition="'$(WindowsAppSDKSelfContained)' == 'true'">false</WindowsAppSdkBootstrapInitialize>
 	<WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
     <EnableMsixTooling>true</EnableMsixTooling>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
@@ -43,7 +43,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
     <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
     <PackageReference Include="Markdig" Version="0.37.0" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="2.0.9" />
     <PackageReference Include="WinUIEx" Version="2.5.0" />
@@ -62,10 +62,9 @@
     </None>
   </ItemGroup>
 
-  <!-- RailGPT is an in-repository runtime module. Keeping it as Content
-       lets development use server_entry.py and lets release builds include
-       the PyInstaller RailGPT.Runtime.exe when it is present. -->
-  <ItemGroup>
+  <!-- Debug builds may use the explicitly configured development Python.
+       Release builds carry only the self-contained runtime and attribution. -->
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <Content Include="..\RailGPT\**\*"
              Exclude="..\RailGPT\**\__pycache__\**;..\RailGPT\**\*.pyc;..\RailGPT\**\*.db;..\RailGPT\**\hf_cache\**;..\RailGPT\**\build\**;..\RailGPT\**\dist\**;..\RailGPT\**\release\**">
       <Link>RailGPT\%(RecursiveDir)%(Filename)%(Extension)</Link>
@@ -74,6 +73,28 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release' and ('$(Platform)' == 'x64' or '$(RuntimeIdentifier)' == 'win-x64')">
+    <Content Include="..\RailGPT\RailGPT.Runtime.exe">
+      <Link>RailGPT\RailGPT.Runtime.exe</Link>
+      <TargetPath>RailGPT\RailGPT.Runtime.exe</TargetPath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\RailGPT\LICENSE">
+      <Link>RailGPT\LICENSE</Link>
+      <TargetPath>RailGPT\LICENSE</TargetPath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="ValidateRailGptRuntime"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(Configuration)' == 'Release' and ('$(Platform)' == 'x64' or '$(RuntimeIdentifier)' == 'win-x64')">
+    <Error Condition="!Exists('..\RailGPT\RailGPT.Runtime.exe')"
+           Text="RailGPT.Runtime.exe is required for Release x64. Run packaging\build-railgpt-runtime.ps1 first." />
+  </Target>
 
   <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <ProjectCapability Include="Msix" />

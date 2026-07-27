@@ -12,7 +12,8 @@ namespace RailGo.Services;
 public sealed class RailGoBridgeServer : IRailGoBridgeHost, IAsyncDisposable
 {
     private readonly QueryService _queryService;
-    private readonly CancellationTokenSource _stop = new();
+    private readonly object _lifecycleSync = new();
+    private CancellationTokenSource? _stop;
     private Task? _acceptLoop;
 
     public RailGoBridgeServer(QueryService queryService)
@@ -25,8 +26,16 @@ public sealed class RailGoBridgeServer : IRailGoBridgeHost, IAsyncDisposable
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (_acceptLoop == null)
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_lifecycleSync)
+        {
+            if (_acceptLoop is { IsCompleted: false })
+                return Task.CompletedTask;
+
+            _stop?.Dispose();
+            _stop = new CancellationTokenSource();
             _acceptLoop = AcceptLoopAsync(_stop.Token);
+        }
         return Task.CompletedTask;
     }
 
@@ -116,19 +125,42 @@ public sealed class RailGoBridgeServer : IRailGoBridgeHost, IAsyncDisposable
         };
     }
 
-    public Task StopAsync()
+    public async Task StopAsync()
     {
-        _stop.Cancel();
-        return Task.CompletedTask;
+        CancellationTokenSource? stop;
+        Task? acceptLoop;
+        lock (_lifecycleSync)
+        {
+            stop = _stop;
+            acceptLoop = _acceptLoop;
+            _stop = null;
+            _acceptLoop = null;
+        }
+
+        if (stop == null)
+            return;
+
+        stop.Cancel();
+        if (acceptLoop != null)
+        {
+            try
+            {
+                await acceptLoop.WaitAsync(TimeSpan.FromSeconds(2));
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (TimeoutException)
+            {
+                // An in-flight RailGo query may not support cancellation.
+                // Do not block application shutdown indefinitely.
+            }
+        }
+        stop.Dispose();
     }
 
     public async ValueTask DisposeAsync()
     {
         await StopAsync();
-        if (_acceptLoop != null)
-        {
-            try { await _acceptLoop; } catch (OperationCanceledException) { }
-        }
-        _stop.Dispose();
     }
 }

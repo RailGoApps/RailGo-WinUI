@@ -8,8 +8,10 @@ namespace RailGo.AI.Services;
 public interface IAIChatClient
 {
     event EventHandler? ConversationsChanged;
+    event EventHandler<bool>? BusyChanged;
 
     void NotifyConversationsChanged();
+    void NotifyBusyChanged(bool busy);
 
     /// <summary>Send a message and receive SSE events as a stream.</summary>
     IAsyncEnumerable<ChatEvent> SendMessageAsync(string text, CancellationToken ct = default);

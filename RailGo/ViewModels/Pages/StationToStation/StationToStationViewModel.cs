@@ -8,10 +8,11 @@ using CommunityToolkit.Mvvm.Messaging;
 using RailGo.Core.Models.Messages;
 using RailGo.Core.Models.QueryDatas;
 using RailGo.Services;
+using RailGo.Contracts.ViewModels;
 
 namespace RailGo.ViewModels.Pages.StationToStation;
 
-public partial class StationToStationViewModel : ObservableRecipient
+public partial class StationToStationViewModel : ObservableRecipient, INavigationAware
 {
     [ObservableProperty]
     private string contentText = "最近查询";
@@ -131,5 +132,31 @@ public partial class StationToStationViewModel : ObservableRecipient
             || string.Equals(station.PinyinTriple, normalizedInput, StringComparison.OrdinalIgnoreCase));
 
         return exactMatch ?? stations.FirstOrDefault();
+    }
+
+    public void OnNavigatedTo(object parameter)
+    {
+        if (parameter is not string[] { Length: >= 2 } route)
+            return;
+
+        FromStationKeyword = route[0];
+        ToStationKeyword = route[1];
+        _ = QueryFromDeepLinkObservedAsync();
+    }
+
+    private async Task QueryFromDeepLinkObservedAsync()
+    {
+        try
+        {
+            await QueryTrainListAsync();
+        }
+        catch (Exception ex)
+        {
+            ContentText = $"查询失败：{ex.Message}";
+        }
+    }
+
+    public void OnNavigatedFrom()
+    {
     }
 }

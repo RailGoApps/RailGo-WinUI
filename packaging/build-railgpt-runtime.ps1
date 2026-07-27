@@ -1,6 +1,7 @@
 param(
     [string]$Python = "python",
-    [string]$DistDir = ""
+    [string]$DistDir = "",
+    [switch]$SkipSmokeTest
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,4 +16,14 @@ if (-not (Get-Command $Python -ErrorAction SilentlyContinue)) { throw "Python wa
 & $Python -m PyInstaller --clean --noconfirm --distpath $outputDir --workpath (Join-Path $repoRoot "artifacts\railgpt-build") $spec
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed." }
 
-Write-Host "RailGPT runtime created under the PyInstaller dist directory."
+$runtimePath = Join-Path $outputDir "RailGPT.Runtime.exe"
+if (-not (Test-Path $runtimePath)) {
+    throw "PyInstaller completed without producing $runtimePath"
+}
+
+if (-not $SkipSmokeTest) {
+    & (Join-Path $PSScriptRoot "test-railgpt-runtime.ps1") -RuntimePath $runtimePath
+    if ($LASTEXITCODE -ne 0) { throw "RailGPT Runtime smoke test failed." }
+}
+
+Write-Host "RailGPT Runtime created and verified: $runtimePath"
