@@ -16,6 +16,7 @@ namespace RailGo.Views.Pages.Chat;
 
 public sealed partial class ChatPage : Page
 {
+    private static readonly TimeSpan WebViewInitializationTimeout = TimeSpan.FromSeconds(30);
     private readonly INavigationService _navigationService;
     private readonly IAIChatClient _chatClient;
     private readonly IRailGptDiagnostics _diagnostics;
@@ -26,6 +27,8 @@ public sealed partial class ChatPage : Page
     private bool _documentReady;
     private bool _navigationInProgress;
     private bool _processRecoveryAttempted;
+    private int _webViewInitializationGeneration;
+    private CancellationTokenSource? _navigationTimeoutCts;
     private int? _pendingConversationId;
     private string? _pendingRequestId;
     private string? _currentBaseUrl;
@@ -98,9 +101,21 @@ public sealed partial class ChatPage : Page
                 return;
             }
 
-            await EnsureWebViewAsync(result.Status);
+            await EnsureWebViewAsync(result.Status).WaitAsync(WebViewInitializationTimeout);
             if (_documentReady)
                 SendConversationRequest(_pendingConversationId);
+        }
+        catch (TimeoutException)
+        {
+            _diagnostics.Error(
+                $"WebView2 initialization timed out after {WebViewInitializationTimeout.TotalSeconds:0} seconds.");
+            InvalidateWebViewInitialization();
+            TearDownWebView();
+            ShowNativeStatus(result.Status with
+            {
+                State = RailGptRuntimeState.Failed,
+                Message = "RailGPT 页面在 30 秒内未完成加载，请打开日志后重试。",
+            });
         }
         catch (Exception ex)
         {
@@ -116,10 +131,11 @@ public sealed partial class ChatPage : Page
 
     private async Task EnsureWebViewAsync(RailGptRuntimeStatus status)
     {
+        var generation = Interlocked.Increment(ref _webViewInitializationGeneration);
         await _webViewGate.WaitAsync();
         try
         {
-            await EnsureWebViewCoreAsync(status);
+            await EnsureWebViewCoreAsync(status, generation);
         }
         finally
         {
@@ -127,8 +143,13 @@ public sealed partial class ChatPage : Page
         }
     }
 
-    private async Task EnsureWebViewCoreAsync(RailGptRuntimeStatus status)
+    private async Task EnsureWebViewCoreAsync(
+        RailGptRuntimeStatus status,
+        int generation)
     {
+        if (!IsCurrentWebViewInitialization(generation))
+            return;
+
         ShowLoading(status.Message);
 
         string browserVersion;
@@ -160,10 +181,16 @@ public sealed partial class ChatPage : Page
         if (!_webViewInitialized)
         {
             _webViewEnvironment ??= await CoreWebView2Environment.CreateAsync();
+            if (!IsCurrentWebViewInitialization(generation))
+                return;
+
             var webView = new WebView2();
             _webView = webView;
             WebViewHost.Children.Add(webView);
             await webView.EnsureCoreWebView2Async(_webViewEnvironment);
+            if (!IsCurrentWebViewInitialization(generation))
+                return;
+
             var coreWebView = webView.CoreWebView2
                 ?? throw new InvalidOperationException("WebView2 initialization completed without a CoreWebView2 instance.");
             coreWebView.WebMessageReceived += OnWebMessageReceived;
@@ -181,6 +208,9 @@ public sealed partial class ChatPage : Page
         if (_currentBaseUrl != status.BaseUrl ||
             (!_documentReady && !_navigationInProgress))
         {
+            if (!IsCurrentWebViewInitialization(generation))
+                return;
+
             _currentBaseUrl = status.BaseUrl;
             _documentReady = false;
             _navigationInProgress = true;
@@ -189,6 +219,7 @@ public sealed partial class ChatPage : Page
             var coreWebView = _webView?.CoreWebView2
                 ?? throw new InvalidOperationException("WebView2 is unavailable after initialization.");
             coreWebView.Navigate(url);
+            StartNavigationTimeout();
         }
     }
 
@@ -197,6 +228,7 @@ public sealed partial class ChatPage : Page
         CoreWebView2NavigationCompletedEventArgs args)
     {
         _navigationInProgress = false;
+        CancelNavigationTimeout();
         if (!args.IsSuccess)
         {
             _diagnostics.Warning($"WebView2 navigation failed. Error={args.WebErrorStatus}");
@@ -262,6 +294,8 @@ public sealed partial class ChatPage : Page
 
     private void TearDownWebView()
     {
+        InvalidateWebViewInitialization();
+        CancelNavigationTimeout();
         if (_webView?.CoreWebView2 != null)
         {
             _webView.CoreWebView2.WebMessageReceived -= OnWebMessageReceived;
@@ -277,6 +311,53 @@ public sealed partial class ChatPage : Page
         _webViewInitialized = false;
         _documentReady = false;
         _navigationInProgress = false;
+    }
+
+    private void InvalidateWebViewInitialization() =>
+        Interlocked.Increment(ref _webViewInitializationGeneration);
+
+    private bool IsCurrentWebViewInitialization(int generation) =>
+        generation == Volatile.Read(ref _webViewInitializationGeneration);
+
+    private void StartNavigationTimeout()
+    {
+        CancelNavigationTimeout();
+        var timeoutCts = new CancellationTokenSource();
+        _navigationTimeoutCts = timeoutCts;
+        _ = ObserveNavigationTimeoutAsync(timeoutCts.Token);
+    }
+
+    private async Task ObserveNavigationTimeoutAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(WebViewInitializationTimeout, cancellationToken);
+            if (!_navigationInProgress || _documentReady)
+                return;
+
+            _diagnostics.Error(
+                $"Embedded RailGPT navigation timed out after {WebViewInitializationTimeout.TotalSeconds:0} seconds.");
+            TearDownWebView();
+            ShowNativeStatus(ViewModel.RuntimeStatus with
+            {
+                State = RailGptRuntimeState.Failed,
+                Message = "RailGPT 页面在 30 秒内未完成导航，请打开日志后重试。",
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.Error("RailGPT navigation watchdog failed.", ex);
+        }
+    }
+
+    private void CancelNavigationTimeout()
+    {
+        _navigationTimeoutCts?.Cancel();
+        _navigationTimeoutCts?.Dispose();
+        _navigationTimeoutCts = null;
     }
 
     private void SendConversationRequest(int? conversationId)
