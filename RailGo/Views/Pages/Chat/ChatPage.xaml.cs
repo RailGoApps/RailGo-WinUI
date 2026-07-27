@@ -150,6 +150,19 @@ public sealed partial class ChatPage : Page
         if (!IsCurrentWebViewInitialization(generation))
             return;
 
+        // Returning from a native RailGo page re-enters this cached ChatPage.
+        // If the existing WebView is already healthy, restore it immediately;
+        // showing Loading here would have no matching NavigationCompleted
+        // event to hide the spinner again.
+        if (_webViewInitialized &&
+            _documentReady &&
+            _webView?.CoreWebView2 != null &&
+            string.Equals(_currentBaseUrl, status.BaseUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            ShowReadyWorkspace();
+            return;
+        }
+
         ShowLoading(status.Message);
 
         string browserVersion;
@@ -247,8 +260,7 @@ public sealed partial class ChatPage : Page
         }
 
         _documentReady = true;
-        NativeStatusPanel.Visibility = Visibility.Collapsed;
-        WebViewHost.Visibility = Visibility.Visible;
+        ShowReadyWorkspace();
         SendConversationRequest(_pendingConversationId);
     }
 
@@ -478,6 +490,15 @@ public sealed partial class ChatPage : Page
         StatusDetails.Text = $"Runtime: {ViewModel.RuntimeDescription}";
         RetryButton.Visibility = Visibility.Collapsed;
         InstallWebViewButton.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowReadyWorkspace()
+    {
+        CancelNavigationTimeout();
+        StatusProgress.IsActive = false;
+        StatusProgress.Visibility = Visibility.Collapsed;
+        NativeStatusPanel.Visibility = Visibility.Collapsed;
+        WebViewHost.Visibility = Visibility.Visible;
     }
 
     private void ShowNativeStatus(RailGptRuntimeStatus status)
