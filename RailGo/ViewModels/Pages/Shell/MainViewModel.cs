@@ -52,7 +52,7 @@ public partial class MainViewModel : ObservableObject
     private void InitializeDefaultNotices()
     {
         Notices.Add("欢迎使用RailGo！");
-        Notices.Add("WinUI新版本0.1.3正式上线，欢迎使用，如有问题请在设置-关于中进入交流群中反馈，感谢支持。");
+        Notices.Add("WinUI新版本0.1.4正式上线，欢迎使用，如有问题请在设置-关于中进入交流群中反馈，感谢支持。");
         Notices.Add("本软件为免费使用，如果是付费的那就是被骗了，盗版举报请发送邮件至report@railgo.dev");
         HasNotices = true;
         CurrentNotice = Notices[0];
