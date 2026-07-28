@@ -19,13 +19,16 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
     private readonly IRailGoBridgeHost _bridgeHost;
     private readonly IRailGptDiagnostics _diagnostics;
     private readonly SemaphoreSlim _startGate = new(1, 1);
+    private readonly object _startupCancellationSync = new();
     private readonly Queue<DateTimeOffset> _restartHistory = new();
     private CancellationTokenSource? _healthCts;
+    private CancellationTokenSource? _startupCts;
     private Process? _process;
     private int _actualPort = DefaultPort;
     private bool _ownsProcess;
     private bool _stopping;
     private volatile bool _shutdownRequested;
+    private int _recoveryInProgress;
     private bool _disposed;
 
     public string BaseUrl => $"http://127.0.0.1:{_actualPort}";
@@ -50,14 +53,16 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
         CancellationToken cancellationToken)
     {
         await _startGate.WaitAsync(cancellationToken);
+        CancellationTokenSource? startupCts = null;
         try
         {
-            if (!explicitStart && _shutdownRequested)
+            startupCts = BeginStartupOperation(explicitStart, cancellationToken);
+            if (startupCts == null)
                 return new RailGptStartResult(Status);
-            if (explicitStart)
-                _shutdownRequested = false;
 
-            if (Status.IsReady && await HealthCheckAsync(cancellationToken))
+            var operationToken = startupCts.Token;
+
+            if (Status.IsReady && await HealthCheckAsync(operationToken))
                 return new RailGptStartResult(Status);
 
             if (RuntimeInformation.ProcessArchitecture != Architecture.X64)
@@ -87,7 +92,7 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
                 return new RailGptStartResult(Status);
             }
 
-            var externalPort = await FindEmbeddedCompatiblePortAsync(cancellationToken);
+            var externalPort = await FindEmbeddedCompatiblePortAsync(operationToken);
             if (externalPort is int compatiblePort)
             {
                 _actualPort = compatiblePort;
@@ -106,7 +111,7 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
                 return new RailGptStartResult(Status);
             }
 
-            _actualPort = await FindAvailablePortAsync(DefaultPort, cancellationToken);
+            _actualPort = await FindAvailablePortAsync(DefaultPort, operationToken);
             var startInfo = CreateStartInfo(runtime, _actualPort, _bridgeHost.PipeName);
             _process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
             _ownsProcess = true;
@@ -123,7 +128,7 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
                 _process.BeginErrorReadLine();
                 _diagnostics.Info($"RailGPT process started. PID={_process.Id}; Port={_actualPort}; Runtime={runtime.Executable}");
 
-                if (!await WaitForServerAsync(TimeSpan.FromSeconds(60), cancellationToken))
+                if (!await WaitForServerAsync(TimeSpan.FromSeconds(60), operationToken))
                 {
                     int? exitCode = _process.HasExited ? _process.ExitCode : null;
                     await StopOwnedProcessAsync(CancellationToken.None);
@@ -139,7 +144,10 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
             }
             catch (OperationCanceledException)
             {
-                await StopOwnedProcessAsync(CancellationToken.None);
+                // The server may not be accepting HTTP yet. Waiting for the
+                // graceful endpoint here can outlive the host's close budget.
+                await StopOwnedProcessAsync(CancellationToken.None, graceful: false);
+                await _bridgeHost.StopAsync();
                 throw;
             }
             catch (Exception ex)
@@ -153,13 +161,14 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
         }
         finally
         {
+            EndStartupOperation(startupCts);
             _startGate.Release();
         }
     }
 
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
-        _shutdownRequested = true;
+        RequestShutdown();
         return StopCoreAsync(cancellationToken);
     }
 
@@ -192,6 +201,10 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
         {
             using var response = await _httpClient.GetAsync($"{BaseUrl}/api/status", cancellationToken);
             return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -248,13 +261,23 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
                 return;
             }
 
-            _restartHistory.Enqueue(DateTimeOffset.UtcNow);
-            CancelHealthChecks();
-            await StopCoreAsync(CancellationToken.None);
-            if (_shutdownRequested)
+            if (Interlocked.CompareExchange(ref _recoveryInProgress, 1, 0) != 0)
                 return;
-            await Task.Delay(1000, CancellationToken.None);
-            await StartCoreAsync(explicitStart: false, CancellationToken.None);
+
+            _restartHistory.Enqueue(DateTimeOffset.UtcNow);
+            try
+            {
+                CancelHealthChecks();
+                await StopCoreAsync(CancellationToken.None);
+                if (_shutdownRequested)
+                    return;
+                await Task.Delay(1000, CancellationToken.None);
+                await StartCoreAsync(explicitStart: false, CancellationToken.None);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _recoveryInProgress, 0);
+            }
             return;
         }
     }
@@ -276,7 +299,14 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
         _diagnostics.Warning($"RailGPT process exited unexpectedly. ExitCode={exitCode?.ToString() ?? "unknown"}");
         CancelHealthChecks();
         SetStatus(RailGptRuntimeState.Exited, "RailGPT Runtime 意外退出，请重试。", processId: null, exitCode: exitCode);
-        _ = RecoverAfterUnexpectedExitAsync();
+        if (Interlocked.CompareExchange(ref _recoveryInProgress, 1, 0) == 0)
+        {
+            _ = RecoverAfterUnexpectedExitAsync().ContinueWith(
+                _ => Interlocked.Exchange(ref _recoveryInProgress, 0),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
     }
 
     private async Task RecoverAfterUnexpectedExitAsync()
@@ -307,14 +337,16 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
         }
     }
 
-    private async Task StopOwnedProcessAsync(CancellationToken cancellationToken)
+    private async Task StopOwnedProcessAsync(
+        CancellationToken cancellationToken,
+        bool graceful = true)
     {
         if (!_ownsProcess || _process == null)
             return;
 
         try
         {
-            if (!_process.HasExited)
+            if (graceful && !_process.HasExited)
             {
                 using var shutdownCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 shutdownCts.CancelAfter(TimeSpan.FromSeconds(3));
@@ -536,6 +568,50 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
         }
     }
 
+    private CancellationTokenSource? BeginStartupOperation(
+        bool explicitStart,
+        CancellationToken cancellationToken)
+    {
+        var startupCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        lock (_startupCancellationSync)
+        {
+            if (!explicitStart && _shutdownRequested)
+            {
+                startupCts.Dispose();
+                return null;
+            }
+            if (explicitStart)
+                _shutdownRequested = false;
+
+            _startupCts?.Cancel();
+            _startupCts?.Dispose();
+            _startupCts = startupCts;
+        }
+        return startupCts;
+    }
+
+    private void EndStartupOperation(CancellationTokenSource? startupCts)
+    {
+        if (startupCts == null)
+            return;
+
+        lock (_startupCancellationSync)
+        {
+            if (ReferenceEquals(_startupCts, startupCts))
+                _startupCts = null;
+        }
+        startupCts.Dispose();
+    }
+
+    private void RequestShutdown()
+    {
+        lock (_startupCancellationSync)
+        {
+            _shutdownRequested = true;
+            _startupCts?.Cancel();
+        }
+    }
+
     private void CancelHealthChecks()
     {
         _healthCts?.Cancel();
@@ -548,6 +624,7 @@ public sealed class RailGptRuntimeManager : IRailGptRuntimeManager, IDisposable
         if (_disposed)
             return;
         _disposed = true;
+        RequestShutdown();
         CancelHealthChecks();
         try
         {

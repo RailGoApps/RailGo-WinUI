@@ -27,6 +27,7 @@ public sealed partial class ChatPage : Page
     private bool _documentReady;
     private bool _navigationInProgress;
     private bool _processRecoveryAttempted;
+    private int _webViewRecoveryInProgress;
     private int _webViewInitializationGeneration;
     private CancellationTokenSource? _navigationTimeoutCts;
     private int? _pendingConversationId;
@@ -77,6 +78,8 @@ public sealed partial class ChatPage : Page
 
         if (status.State is RailGptRuntimeState.Starting or RailGptRuntimeState.Stopping)
         {
+            InvalidateWebViewInitialization();
+            CancelNavigationTimeout();
             _documentReady = false;
             _navigationInProgress = false;
             ShowLoading(status.Message);
@@ -85,6 +88,8 @@ public sealed partial class ChatPage : Page
 
         if (status.IsTerminalFailure)
         {
+            InvalidateWebViewInitialization();
+            CancelNavigationTimeout();
             _documentReady = false;
             _navigationInProgress = false;
             ShowNativeStatus(status);
@@ -98,6 +103,15 @@ public sealed partial class ChatPage : Page
             if (!result.Success)
             {
                 ShowNativeStatus(result.Status);
+                return;
+            }
+
+            var currentStatus = ViewModel.RuntimeStatus;
+            if (!currentStatus.IsReady ||
+                !string.Equals(currentStatus.BaseUrl, result.Status.BaseUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                if (currentStatus.IsTerminalFailure)
+                    ShowNativeStatus(currentStatus);
                 return;
             }
 
@@ -202,7 +216,18 @@ public sealed partial class ChatPage : Page
             WebViewHost.Children.Add(webView);
             await webView.EnsureCoreWebView2Async(_webViewEnvironment);
             if (!IsCurrentWebViewInitialization(generation))
+            {
+                // A runtime transition or watchdog invalidated this creation
+                // while WebView2 was initializing. Do not leave an invisible
+                // Chromium control in the visual tree.
+                if (ReferenceEquals(_webView, webView))
+                {
+                    WebViewHost.Children.Remove(webView);
+                    webView.Close();
+                    _webView = null;
+                }
                 return;
+            }
 
             var coreWebView = webView.CoreWebView2
                 ?? throw new InvalidOperationException("WebView2 initialization completed without a CoreWebView2 instance.");
@@ -271,7 +296,12 @@ public sealed partial class ChatPage : Page
         _diagnostics.Warning($"WebView2 process failed. Kind={args.ProcessFailedKind}; Reason={args.Reason}");
         _documentReady = false;
 
-        if (!_processRecoveryAttempted && ViewModel.RuntimeStatus.IsReady)
+        if (Volatile.Read(ref _webViewRecoveryInProgress) != 0)
+            return;
+
+        if (!_processRecoveryAttempted &&
+            ViewModel.RuntimeStatus.IsReady &&
+            Interlocked.CompareExchange(ref _webViewRecoveryInProgress, 1, 0) == 0)
         {
             _processRecoveryAttempted = true;
             ShowLoading("WebView2 进程已退出，正在恢复…");
@@ -291,7 +321,19 @@ public sealed partial class ChatPage : Page
         try
         {
             TearDownWebView();
-            await EnsureWebViewAsync(ViewModel.RuntimeStatus);
+            await EnsureWebViewAsync(ViewModel.RuntimeStatus).WaitAsync(WebViewInitializationTimeout);
+        }
+        catch (TimeoutException)
+        {
+            _diagnostics.Error(
+                $"WebView2 recovery timed out after {WebViewInitializationTimeout.TotalSeconds:0} seconds.");
+            InvalidateWebViewInitialization();
+            TearDownWebView();
+            ShowNativeStatus(ViewModel.RuntimeStatus with
+            {
+                State = RailGptRuntimeState.Failed,
+                Message = "WebView2 恢复超时，请打开日志后重试。",
+            });
         }
         catch (Exception ex)
         {
@@ -302,12 +344,17 @@ public sealed partial class ChatPage : Page
                 Message = $"WebView2 恢复失败：{ex.Message}",
             });
         }
+        finally
+        {
+            Interlocked.Exchange(ref _webViewRecoveryInProgress, 0);
+        }
     }
 
     private void TearDownWebView()
     {
         InvalidateWebViewInitialization();
         CancelNavigationTimeout();
+        _chatClient.NotifyBusyChanged(false);
         if (_webView?.CoreWebView2 != null)
         {
             _webView.CoreWebView2.WebMessageReceived -= OnWebMessageReceived;
@@ -531,6 +578,7 @@ public sealed partial class ChatPage : Page
         {
             ShowLoading("正在重试 RailGPT…");
             _processRecoveryAttempted = false;
+            Interlocked.Exchange(ref _webViewRecoveryInProgress, 0);
             TearDownWebView();
             var result = await ViewModel.RetryAsync();
             await HandlePreparedObservedAsync(result);

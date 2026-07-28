@@ -28,10 +28,12 @@ public sealed partial class ShellPage : Page
     private readonly IAIChatClient _chatClient;
     private readonly List<NavigationViewItem> _conversationItems = new();
     private bool _loadingConversations;
+    private bool _conversationRefreshPending;
     private int? _activeConversationId;
     private bool _hostEventsRegistered;
     private bool _keyboardAcceleratorsRegistered;
     private bool _chatBusy;
+    private bool _isLoaded;
 
     public ShellViewModel ViewModel { get; }
 
@@ -61,6 +63,7 @@ public sealed partial class ShellPage : Page
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        _isLoaded = true;
         // ShellPage can be unloaded and loaded again without being reconstructed.
         // Restore the RailGPT-specific handlers that OnUnloaded releases.
         RegisterHostEvents();
@@ -206,16 +209,28 @@ public sealed partial class ShellPage : Page
     {
         if (!status.IsReady)
             return;
-        DispatcherQueue.TryEnqueue(() => _ = LoadConversationItemsAsync());
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_isLoaded)
+                _ = LoadConversationItemsAsync();
+        });
     }
 
     private void OnConversationsChanged(object? sender, EventArgs e) =>
-        DispatcherQueue.TryEnqueue(() => _ = LoadConversationItemsAsync());
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_isLoaded)
+                _ = LoadConversationItemsAsync();
+        });
 
     private void OnIndexedConversationsChanged(
         object? sender,
         IReadOnlyList<ChatConversation> conversations) =>
-        DispatcherQueue.TryEnqueue(() => RenderConversationItems(conversations));
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_isLoaded)
+                RenderConversationItems(conversations);
+        });
 
     private void OnChatBusyChanged(object? sender, bool busy) =>
         DispatcherQueue.TryEnqueue(() => _chatBusy = busy);
@@ -223,15 +238,25 @@ public sealed partial class ShellPage : Page
     private async Task LoadConversationItemsAsync()
     {
         if (_loadingConversations)
+        {
+            _conversationRefreshPending = true;
             return;
+        }
 
         _loadingConversations = true;
         try
         {
-            var conversations = _runtimeManager.Status.IsReady
-                ? await _chatClient.GetConversationsAsync()
-                : (await _conversationIndexReader.RefreshAsync()).ToList();
-            DispatcherQueue.TryEnqueue(() => RenderConversationItems(conversations));
+            do
+            {
+                _conversationRefreshPending = false;
+                var conversations = _runtimeManager.Status.IsReady
+                    ? await _chatClient.GetConversationsAsync()
+                    : (await _conversationIndexReader.RefreshAsync()).ToList();
+                if (!_isLoaded)
+                    return;
+                RenderConversationItems(conversations);
+            }
+            while (_conversationRefreshPending);
         }
         catch (Exception ex)
         {
@@ -275,6 +300,9 @@ public sealed partial class ShellPage : Page
 
     private void RenderConversationItems(IReadOnlyList<ChatConversation> conversations)
     {
+        if (!_isLoaded)
+            return;
+
         foreach (var item in _conversationItems)
             NavigationViewControl.MenuItems.Remove(item);
         _conversationItems.Clear();
@@ -298,8 +326,15 @@ public sealed partial class ShellPage : Page
             : Visibility.Collapsed;
 
         if (_activeConversationId is int activeId)
-            NavigationViewControl.SelectedItem = _conversationItems.FirstOrDefault(
+        {
+            var selectedItem = _conversationItems.FirstOrDefault(
                 item => string.Equals(item.Tag?.ToString(), $"chat:{activeId}", StringComparison.OrdinalIgnoreCase));
+            if (selectedItem != null)
+            {
+                ViewModel.Selected = selectedItem;
+                NavigationViewControl.SelectedItem = selectedItem;
+            }
+        }
     }
 
     private MenuFlyout BuildConversationMenu(ChatConversation conversation)
@@ -419,6 +454,7 @@ public sealed partial class ShellPage : Page
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _isLoaded = false;
         _backgroundImageService.BackgroundImageChanged -= OnBackgroundImageChanged;
         UnregisterHostEvents();
     }
@@ -447,6 +483,8 @@ public sealed partial class ShellPage : Page
             using var stream = await file.OpenReadAsync();
             var bitmapImage = new BitmapImage();
             await bitmapImage.SetSourceAsync(stream);
+            if (!_isLoaded)
+                return;
             RootGrid.Background = new ImageBrush
             {
                 ImageSource = bitmapImage,

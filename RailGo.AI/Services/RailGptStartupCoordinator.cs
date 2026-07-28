@@ -7,6 +7,7 @@ public sealed class RailGptStartupCoordinator : IRailGptStartupCoordinator
     private readonly IRailGptRuntimeManager _runtimeManager;
     private readonly IRailGptDiagnostics _diagnostics;
     private readonly object _sync = new();
+    private readonly SemaphoreSlim _operationGate = new(1, 1);
     private Task<RailGptStartResult>? _readyTask;
 
     public RailGptStartupCoordinator(
@@ -31,37 +32,54 @@ public sealed class RailGptStartupCoordinator : IRailGptStartupCoordinator
         _ = StartAsync();
     }
 
-    public Task<RailGptStartResult> StartAsync(CancellationToken cancellationToken = default)
+    public async Task<RailGptStartResult> StartAsync(CancellationToken cancellationToken = default)
     {
         Task<RailGptStartResult> sharedTask;
-        lock (_sync)
+        await _operationGate.WaitAsync(cancellationToken);
+        try
         {
-            if (_readyTask == null ||
-                _readyTask.IsCanceled ||
-                _readyTask.IsFaulted ||
-                (_readyTask.IsCompleted && _runtimeManager.Status.IsTerminalFailure))
+            lock (_sync)
             {
-                // The host owns startup lifetime. A page cancellation may stop
-                // waiting, but must not cancel the process shared by all pages.
-                _readyTask = StartObservedAsync(CancellationToken.None);
+                if (_readyTask == null ||
+                    _readyTask.IsCanceled ||
+                    _readyTask.IsFaulted ||
+                    (_readyTask.IsCompleted && !_runtimeManager.Status.IsReady))
+                {
+                    // The host owns startup lifetime. A page cancellation may stop
+                    // waiting, but must not cancel the process shared by all pages.
+                    _readyTask = StartObservedAsync(CancellationToken.None);
+                }
+                sharedTask = _readyTask;
             }
-            sharedTask = _readyTask;
+        }
+        finally
+        {
+            _operationGate.Release();
         }
 
         return cancellationToken.CanBeCanceled
-            ? sharedTask.WaitAsync(cancellationToken)
-            : sharedTask;
+            ? await sharedTask.WaitAsync(cancellationToken)
+            : await sharedTask;
     }
 
     public async Task<RailGptStartResult> RetryAsync(CancellationToken cancellationToken = default)
     {
-        await _runtimeManager.StopAsync(cancellationToken);
         Task<RailGptStartResult> sharedTask;
-        lock (_sync)
+        await _operationGate.WaitAsync(cancellationToken);
+        try
         {
-            _readyTask = StartObservedAsync(CancellationToken.None);
-            sharedTask = _readyTask;
+            await _runtimeManager.StopAsync(cancellationToken);
+            lock (_sync)
+            {
+                _readyTask = StartObservedAsync(CancellationToken.None);
+                sharedTask = _readyTask;
+            }
         }
+        finally
+        {
+            _operationGate.Release();
+        }
+
         return cancellationToken.CanBeCanceled
             ? await sharedTask.WaitAsync(cancellationToken)
             : await sharedTask;

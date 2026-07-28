@@ -66,7 +66,7 @@ public sealed partial class MainWindow : WindowEx
         settings.ColorValuesChanged -= Settings_ColorValuesChanged;
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
             // Closed is raised on the UI thread. Run the async shutdown on a
             // worker so its continuations cannot deadlock against that thread.
             Task.Run(() => App.GetService<IRailGptRuntimeManager>().StopAsync(timeout.Token))

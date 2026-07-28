@@ -103,6 +103,8 @@ public sealed class RailGptConversationIndexReader : IRailGptConversationIndexRe
     {
         lock (_debounceSync)
         {
+            if (_disposed)
+                return;
             _debounceCts?.Cancel();
             _debounceCts?.Dispose();
             _debounceCts = new CancellationTokenSource();
@@ -169,6 +171,8 @@ public sealed class RailGptConversationIndexReader : IRailGptConversationIndexRe
         }
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
-        _refreshGate.Dispose();
+        // A debounced refresh may still be unwinding and releasing this gate.
+        // It is process-lifetime state, so leaving it undisposed avoids a
+        // shutdown-only ObjectDisposedException.
     }
 }
