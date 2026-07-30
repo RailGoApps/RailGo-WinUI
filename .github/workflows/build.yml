@@ -49,21 +49,27 @@ jobs:
         architecture: 'x64'
         cache: 'pip'
         cache-dependency-path: |
-          RailGPT/requirements.txt
-          RailGPT/requirements-dev.txt
+          RailGPT/requirements-lock.txt
 
     - name: Build and smoke-test RailGPT Runtime
       shell: pwsh
       run: |
-        python -m pip install --upgrade pip
+        python -m pip install pip==26.1.2
         python -m pip install -r RailGPT/requirements-dev.txt
+        Push-Location RailGPT
+        try {
+          python -m unittest discover -s . -p "test*.py"
+        }
+        finally {
+          Pop-Location
+        }
         ./packaging/build-railgpt-runtime.ps1 -Python python
         $env:Path = (($env:Path -split ';') |
-          Where-Object { $_ -notmatch '(?i)python' }) -join ';'
+          Where-Object { $_ -notmatch '(?i)python|conda' }) -join ';'
         ./packaging/test-railgpt-runtime.ps1
 
     - name: Setup MSBuild.exe
-      uses: microsoft/setup-msbuild@v1.1
+      uses: microsoft/setup-msbuild@v2
 
     - name: Restore the application
       run: msbuild $env:Solution_Name /t:Restore /p:Configuration=$env:Configuration
@@ -75,6 +81,9 @@ jobs:
       run: |
         $AppxManifestPath = "RailGo/Package.appxmanifest"
         $newVersion = "${{ inputs.version }}"
+        if ($newVersion -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+          throw "Version must use the four-part MSIX format: $newVersion"
+        }
         $versionCode = Get-Date -Format "yyMMdd"
         Write-Output "Setting new version: $newVersion"
         Write-Output "Setting new version code: $versionCode"
@@ -84,7 +93,7 @@ jobs:
         $xmlMSIX.Save($AppxManifestPath)
 
     - name: Create the MSIX Package
-      run: msbuild $env:Solution_Name /p:AppxBundlePlatforms="$env:Appx_Bundle_Platforms" /p:Configuration=$env:Configuration /p:UapAppxPackageBuildMode=$env:Appx_Package_Build_Mode /p:AppxBundle=$env:Appx_Bundle /p:AppxPackageDir="$env:Appx_Package_Dir" /p:GenerateAppxPackageOnBuild=true /p:AppxPackageSigningEnabled=false
+      run: msbuild $env:Solution_Name /p:RailGoVersion="${{ inputs.version }}" /p:AppxBundlePlatforms="$env:Appx_Bundle_Platforms" /p:Configuration=$env:Configuration /p:UapAppxPackageBuildMode=$env:Appx_Package_Build_Mode /p:AppxBundle=$env:Appx_Bundle /p:AppxPackageDir="$env:Appx_Package_Dir" /p:GenerateAppxPackageOnBuild=true /p:AppxPackageSigningEnabled=false
       env:
         Appx_Bundle: Always
         Appx_Bundle_Platforms: x86|x64|ARM64
@@ -110,21 +119,9 @@ jobs:
         if (-not $x64Package) {
           throw "The x64 MSIX package was not produced."
         }
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $archive = [System.IO.Compression.ZipFile]::OpenRead($x64Package.FullName)
-        try {
-          $runtimeEntry = $archive.Entries |
-            Where-Object {
-              $_.FullName.Replace('\', '/') -eq 'RailGPT/RailGPT.Runtime.exe'
-            } |
-            Select-Object -First 1
-          if (-not $runtimeEntry -or $runtimeEntry.Length -eq 0) {
-            throw "RailGPT.Runtime.exe is missing from the x64 MSIX package."
-          }
-        }
-        finally {
-          $archive.Dispose()
-        }
+        ./packaging/test-railgo-msix.ps1 `
+          -MsixPath $x64Package.FullName `
+          -ExpectedVersion "${{ inputs.version }}"
     
     - name: Sign .msix
       run: |

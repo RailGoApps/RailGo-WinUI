@@ -36,6 +36,12 @@ for package in ("agent", "memory", "knowledge", "llm", "tools", "thinking", "uti
     if (root / package).exists():
         hiddenimports.extend(collect_submodules(package, filter=is_runtime_module))
 
+for package in (
+    "scipy._external.array_api_compat",
+    "scipy._lib.array_api_compat",
+):
+    hiddenimports.extend(collect_submodules(package))
+
 a = Analysis(
     [str(root / "server_entry.py")],
     pathex=[str(root)],

@@ -22,6 +22,8 @@ $dataRoot = Join-Path $tempRoot ("RailGPT-smoke-" + [Guid]::NewGuid().ToString("
 [System.IO.Directory]::CreateDirectory($dataRoot) | Out-Null
 $stdoutPath = Join-Path $dataRoot "stdout.log"
 $stderrPath = Join-Path $dataRoot "stderr.log"
+$selfTestStdoutPath = Join-Path $dataRoot "self-test-stdout.log"
+$selfTestStderrPath = Join-Path $dataRoot "self-test-stderr.log"
 
 $environmentNames = @(
     "RAILGPT_HOST",
@@ -45,7 +47,52 @@ foreach ($name in $environmentNames) {
 $started = $false
 $passed = $false
 $process = $null
+$selfTestProcess = $null
 try {
+    $selfTestProcess = Start-Process `
+        -FilePath $RuntimePath `
+        -ArgumentList "--self-test" `
+        -WorkingDirectory (Split-Path $RuntimePath) `
+        -RedirectStandardOutput $selfTestStdoutPath `
+        -RedirectStandardError $selfTestStderrPath `
+        -WindowStyle Hidden `
+        -PassThru
+    if (-not $selfTestProcess.WaitForExit($TimeoutSeconds * 1000)) {
+        $selfTestProcess.Kill()
+        $selfTestProcess.WaitForExit()
+        throw "RailGPT Runtime self-test timed out after $TimeoutSeconds seconds."
+    }
+    $selfTestProcess.WaitForExit()
+    $selfTestProcess.Refresh()
+    $selfTestExitCode = $selfTestProcess.ExitCode
+    if ($null -ne $selfTestExitCode -and $selfTestExitCode -ne 0) {
+        $selfTestError = if (Test-Path $selfTestStderrPath) {
+            Get-Content $selfTestStderrPath -Raw
+        } else {
+            ""
+        }
+        throw (
+            "RailGPT Runtime self-test exited with code " +
+            "$selfTestExitCode.`n$selfTestError"
+        )
+    }
+    $selfTestOutput = Get-Content $selfTestStdoutPath |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -Last 1
+    try {
+        $selfTest = $selfTestOutput | ConvertFrom-Json
+    }
+    catch {
+        throw "RailGPT Runtime self-test returned invalid JSON: $selfTestOutput"
+    }
+    if ($selfTest.service -ne "RailGPT" -or
+        $selfTest.timezone -ne "Asia/Shanghai" -or
+        $selfTest.resources -ne "ok" -or
+        $selfTest.sentence_transformers -ne "imported" -or
+        $selfTest.frozen -ne $true) {
+        throw "RailGPT Runtime self-test returned an invalid payload: $selfTestOutput"
+    }
+
     $process = Start-Process `
         -FilePath $RuntimePath `
         -WorkingDirectory (Split-Path $RuntimePath) `
@@ -73,7 +120,9 @@ try {
         }
         try {
             $status = Invoke-RestMethod -Uri "$baseUrl/api/status" -TimeoutSec 3
-            if ($null -ne $status) {
+            if ($status.service -eq "RailGPT" -and
+                $status.embedded_supported -eq $true -and
+                -not [string]::IsNullOrWhiteSpace([string]$status.version)) {
                 $ready = $true
                 break
             }
@@ -107,6 +156,9 @@ finally {
     }
     if ($null -ne $process) {
         $process.Dispose()
+    }
+    if ($null -ne $selfTestProcess) {
+        $selfTestProcess.Dispose()
     }
     foreach ($name in $environmentNames) {
         [Environment]::SetEnvironmentVariable(

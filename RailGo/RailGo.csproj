@@ -25,9 +25,6 @@
     <AppxBundle>Never</AppxBundle>
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
     <DefaultLanguage>zh-cn</DefaultLanguage>
-    <Version>0.1.4.0</Version>
-    <AssemblyVersion>0.1.4.0</AssemblyVersion>
-    <FileVersion>0.1.4.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

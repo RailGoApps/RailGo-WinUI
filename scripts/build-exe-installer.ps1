@@ -1,7 +1,7 @@
 ﻿param(
     [string]$Configuration = "Release",
     [string]$RuntimeIdentifier = "win-x64",
-    [string]$Version = "0.1.4",
+    [string]$Version = "",
     [switch]$SkipInstaller
 )
 
@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $projectPath = Join-Path $repoRoot "RailGo\RailGo.csproj"
+$versionPropsPath = Join-Path $repoRoot "Directory.Build.props"
 $publishDir = Join-Path $repoRoot "artifacts\publish\$RuntimeIdentifier"
 $installerDir = Join-Path $repoRoot "artifacts\installer"
 $prerequisitesDir = Join-Path $repoRoot "artifacts\prerequisites"
@@ -23,6 +24,23 @@ $platform = switch ($RuntimeIdentifier) {
 
 if (-not (Test-Path $projectPath)) {
     throw "Cannot find project file: $projectPath"
+}
+
+if (-not (Test-Path $versionPropsPath)) {
+    throw "Cannot find the shared version file: $versionPropsPath"
+}
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    [xml]$versionProps = Get-Content $versionPropsPath
+    $versionNode = $versionProps.SelectSingleNode("//RailGoVersion")
+    if ($null -eq $versionNode) {
+        throw "RailGoVersion is missing from $versionPropsPath"
+    }
+    $Version = $versionNode.InnerText.Trim()
+}
+
+if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+    throw "Version must use the four-part MSIX format (for example 0.1.4.0): $Version"
 }
 
 if (-not (Test-Path $installerScriptPath)) {
@@ -52,7 +70,11 @@ $restoreSucceeded = $false
 $maxRestoreRetries = 4
 for ($attempt = 1; $attempt -le $maxRestoreRetries; $attempt++) {
     Write-Host "dotnet restore attempt $attempt/$maxRestoreRetries..."
-    dotnet restore $projectPath --disable-parallel
+    dotnet restore $projectPath `
+        -r $RuntimeIdentifier `
+        -p:Platform=$platform `
+        -p:RailGoVersion=$Version `
+        --disable-parallel
     if ($LASTEXITCODE -eq 0) {
         $restoreSucceeded = $true
         break
@@ -71,6 +93,7 @@ dotnet publish $projectPath `
     -c $Configuration `
     -r $RuntimeIdentifier `
     -p:Platform=$platform `
+    -p:RailGoVersion=$Version `
     -f net8.0-windows10.0.26100.0 `
     --self-contained true `
     -p:WindowsPackageType=None `
@@ -82,6 +105,15 @@ dotnet publish $projectPath `
 
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed. See errors above."
+}
+
+$publishedRuntime = Join-Path $publishDir "RailGPT\RailGPT.Runtime.exe"
+if ($RuntimeIdentifier -eq "win-x64") {
+    if (-not (Test-Path $publishedRuntime)) {
+        throw "Published RailGPT Runtime is missing: $publishedRuntime"
+    }
+    & (Join-Path $repoRoot "packaging\test-railgpt-runtime.ps1") `
+        -RuntimePath $publishedRuntime
 }
 
 if ($SkipInstaller) {

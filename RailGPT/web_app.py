@@ -584,6 +584,9 @@ def chat():
 @app.route("/api/status", methods=["GET"])
 def status():
     return jsonify({
+        "service": APP_NAME,
+        "version": APP_VERSION,
+        "embedded_supported": True,
         "busy": _busy,
         "current_id": _store.current_id if _store else None,
         "has_api_key": _settings.has_api_key(),
