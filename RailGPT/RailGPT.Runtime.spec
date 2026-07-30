@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 root = Path(SPECPATH)
 
@@ -16,7 +16,7 @@ def data_tree(name):
         and not path.name.startswith("test_")
     ]
 
-datas = []
+datas = collect_data_files("tzdata")
 for directory in ("templates", "static", "assets", "knowledge", "prompts", "tools"):
     if (root / directory).exists():
         datas.extend(data_tree(directory))
