@@ -3,9 +3,10 @@
 import json
 import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from agent.capabilities import IntentEnvelope, capability_catalog, get_capability
 from agent.fast_mode import FastFactCompressor
@@ -527,6 +528,7 @@ class AnswerGenerator:
                     "- You may use stable general railway knowledge for explanations about technology, operations, history, culture, enthusiast slang, and comparison questions.\n"
                     "- Never present live ticket inventory, same-day platform allocation, current dispatch order, real-time assignment, or current running status as certain unless tools already grounded them.\n"
                     "- Never say that a lookup ran, returned no records, or failed unless the current-turn facts contain that query result. A prior turn's tool evidence does not prove the result for a newly requested station/train/date.\n"
+                    "- Use the standard Chinese term 快照 for a time-stamped result; never write 快相.\n"
                     "- Tool provenance is displayed by the application UI. Do not repeat provider names or provider URLs unless the user explicitly asks about data sources.\n"
                     "- If both tool-grounded facts and general railway knowledge appear, make tool-grounded facts primary and keep the explanatory knowledge clearly secondary."
                 ),
@@ -721,6 +723,57 @@ class AnswerGenerator:
                 ),
             })
 
+        completed_queries = [
+            item
+            for item in facts.get("queries", [])
+            if isinstance(item, dict)
+            and str(item.get("type") or "query") not in {"query_error", "query_empty"}
+            and (item.get("evidence") is not None or item.get("pretty") or item.get("fast_views"))
+        ]
+        if completed_queries:
+            current_objects = sorted(
+                {str(item.get("object") or "").strip() for item in completed_queries if str(item.get("object") or "").strip()}
+            )
+            messages.append({
+                "role": "system",
+                "content": (
+                    "Current-turn tool execution contract:\n"
+                    "- The requested lookup has already completed and its evidence is included below.\n"
+                    "- Answer with the available result now. Never say you are about to query, ask the user to wait, or promise a later result.\n"
+                    "- Do not describe a completed tool call as still running.\n"
+                    "- If the result is a time-stamped snapshot, quote its exact observed time; never invent a nearby time or estimate elapsed time.\n"
+                    "Evidence isolation contract:\n"
+                    f"- The current evidence objects are: {', '.join(current_objects)}.\n"
+                    "- Prior user/assistant messages and ActiveTopicFrame are continuity context, not factual evidence for this answer.\n"
+                    "- Do not carry over a prior board snapshot, delay result, time, train status, station state, or inference unless it appears in the current-turn evidence.\n"
+                    "- In particular, path_detail establishes scheduled route/profile facts only. It cannot establish real-time delay, punctuality, or the contents of an earlier snapshot.\n"
+                    "- Use 快照, never 快相."
+                ),
+            })
+
+        station_board_queries = [
+            item for item in completed_queries
+            if str(item.get("object") or "").strip() == "station_board"
+        ]
+        if station_board_queries:
+            board = station_board_queries[-1]
+            grounded_slots = board.get("grounded_slots") if isinstance(board.get("grounded_slots"), dict) else {}
+            freshness = board.get("freshness") if isinstance(board.get("freshness"), dict) else {}
+            row_count = len(board.get("evidence") or []) if isinstance(board.get("evidence"), list) else 0
+            messages.append({
+                "role": "system",
+                "content": (
+                    "Station-board presentation contract:\n"
+                    f"- Queried station: {grounded_slots.get('station') or 'unknown'}.\n"
+                    f"- Board direction: {grounded_slots.get('direction') or 'unknown'}.\n"
+                    f"- Exact snapshot time: {freshness.get('fetched_at') or 'not supplied'}.\n"
+                    f"- Returned board rows: {row_count}.\n"
+                    "- The station above remains the conversation subject. Origins, destinations, and trains inside rows are entries only.\n"
+                    "- Call this a board snapshot, not a continuously updating feed.\n"
+                    "- Never replace the exact snapshot time with phrases such as 'around noon' or claim how long ago it was unless exact arithmetic is required and grounded."
+                ),
+            })
+
         # =====================================================
         # 4️⃣ Facts JSON (Full, No Truncation)
         # =====================================================
@@ -743,8 +796,8 @@ class AnswerGenerator:
         messages.append({
             "role": "system",
             "content": (
-                    "All records are from the latest timetable + recent 30-day assignments.\n"
-                    f"Current Beijing Time (UTC+8): {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
+                    "Evidence below is current-turn tool output; honor each query's own scope and timestamp.\n"
+                    f"Current Beijing Time (UTC+8): {datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S')}\n\n"
                     + facts_intro
                     + facts_text
             )
@@ -1086,7 +1139,7 @@ class AnswerGenerator:
             context_bundle=context_bundle,
         )
 
-        return self.final_llm.generate(messages)
+        return self._normalize_display_text(self.final_llm.generate(messages))
 
     def build_pending_messages(
         self,
@@ -1184,6 +1237,23 @@ class AnswerGenerator:
         )
         return self.final_llm.generate(messages)
 
+    @staticmethod
+    def _normalize_display_text(text: str) -> str:
+        """Correct known display-only lexical slips without changing railway facts."""
+        return str(text or "").replace("快相", "快照")
+
+    def _normalized_stream(self, tokens: Iterable[str]):
+        # Keep one trailing character so a two-character correction still works
+        # when the provider splits it across separate SSE chunks.
+        pending = ""
+        for token in tokens:
+            pending = self._normalize_display_text(pending + str(token or ""))
+            if len(pending) > 1:
+                yield pending[:-1]
+                pending = pending[-1:]
+        if pending:
+            yield self._normalize_display_text(pending)
+
     def stream_pending_question(
         self,
         user_text: str,
@@ -1199,10 +1269,10 @@ class AnswerGenerator:
             tasks=tasks,
             facts=facts,
         )
-        return self.final_llm.stream_generate(messages)
+        return self._normalized_stream(self.final_llm.stream_generate(messages))
 
     def stream_final(self, messages: List[Dict[str, str]]):
-        return self.final_llm.stream_generate(messages)
+        return self._normalized_stream(self.final_llm.stream_generate(messages))
 
     def produce_and_record(
             self,
@@ -1833,4 +1903,4 @@ class AnswerGenerator:
 
     def stream_answer(self, user_text, facts, session=None, context_bundle: Optional[Dict[str, Any]] = None):
         messages = self.build_messages(user_text, facts, session, context_bundle=context_bundle)
-        return self.final_llm.stream_generate(messages)
+        return self._normalized_stream(self.final_llm.stream_generate(messages))

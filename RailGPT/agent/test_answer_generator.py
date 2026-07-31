@@ -25,6 +25,16 @@ class DummyLLM:
         return iter(())
 
 
+class TokenLLM(DummyLLM):
+    def __init__(self, tokens):
+        super().__init__()
+        self.tokens = tokens
+
+    def stream_generate(self, messages):
+        self.stream_calls += 1
+        return iter(self.tokens)
+
+
 class CountingFastAnswerGenerator(AnswerGenerator):
     def __init__(self):
         super().__init__(DummyLLM(mode="fast"))
@@ -42,6 +52,82 @@ class CountingFastAnswerGenerator(AnswerGenerator):
 
 
 class AnswerGeneratorPromptTest(unittest.TestCase):
+    def test_stream_normalizes_split_snapshot_typo(self):
+        answer_generator = AnswerGenerator(TokenLLM(["快", "相", "时间"] ))
+
+        text = "".join(answer_generator.stream_final([]))
+
+        self.assertEqual(text, "快照时间")
+
+    def test_path_answer_prompt_isolates_prior_dynamic_context(self):
+        answer_generator = AnswerGenerator(DummyLLM(mode="fast"))
+        session = SessionMemory()
+        session.add_user_message("G680晚点了吗")
+        session.add_ai_message("上一轮的运行快照显示少量晚点。")
+        facts = {
+            "queries": [{
+                "domain": "railway",
+                "object": "path_detail",
+                "id": "G680",
+                "date": "2026-07-31",
+                "pretty": "G680 厦门北 -> 天津西；京局；CRH380B",
+            }],
+            "analysis": [],
+            "comparisons": [],
+            "meta": {
+                "errors": [], "warnings": [], "chat_messages": [],
+                "intent_envelope": {"intent_family": "train_path", "selected_capability": "path_detail"},
+            },
+        }
+
+        messages = answer_generator.build_messages("核验G680的路局", facts, session=session)
+        prompt = "\n".join(item["content"] for item in messages if item["role"] == "system")
+
+        self.assertIn("Evidence isolation contract", prompt)
+        self.assertIn("path_detail establishes scheduled route/profile facts only", prompt)
+        self.assertIn("never write 快相", prompt)
+
+    def test_station_board_prompt_requires_immediate_snapshot_answer(self):
+        answer_generator = AnswerGenerator(DummyLLM(mode="fast"))
+        facts = {
+            "queries": [
+                {
+                    "domain": "railway",
+                    "object": "station_board",
+                    "id": "NKH|departure",
+                    "grounded_slots": {
+                        "station": "南京南",
+                        "direction": "departure",
+                    },
+                    "evidence": [
+                        {
+                            "trainNum": "G1948",
+                            "time": "11:41",
+                            "bigScreenStatus": "检票",
+                        }
+                    ],
+                    "freshness": {
+                        "fetched_at": "2026-07-31T11:46:04+08:00",
+                        "age_seconds": 0,
+                    },
+                    "pretty": "LIVE STATION BOARD",
+                }
+            ],
+            "analysis": [],
+            "comparisons": [],
+            "meta": {"errors": [], "warnings": [], "chat_messages": []},
+        }
+
+        messages = answer_generator.build_messages("好", facts)
+        prompt = "\n".join(item["content"] for item in messages if item["role"] == "system")
+
+        self.assertIn("The requested lookup has already completed", prompt)
+        self.assertIn("Never say you are about to query", prompt)
+        self.assertIn("Queried station: 南京南", prompt)
+        self.assertIn("Exact snapshot time: 2026-07-31T11:46:04+08:00", prompt)
+        self.assertIn("Returned board rows: 1", prompt)
+        self.assertIn("Current Beijing Time (UTC+8)", prompt)
+
     def test_late_extra_request_filters_temporarily_disabled_capabilities(self):
         answer_generator = AnswerGenerator(DummyLLM(mode="fast"))
 

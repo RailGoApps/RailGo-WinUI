@@ -201,7 +201,14 @@ class MemoryCuratorAgent:
         for index, query in enumerate(queries or []):
             if not isinstance(query, dict):
                 continue
-            entities = extract_entities_from_tasklike_items([query])
+            entity_query = query
+            if str(query.get("object") or "").strip() == "station_board":
+                entity_query = {
+                    key: query.get(key)
+                    for key in ("object", "id", "date", "grounded_slots")
+                    if query.get(key) is not None
+                }
+            entities = extract_entities_from_tasklike_items([entity_query])
             if not has_substantive_entities(entities):
                 continue
             obj = str(query.get("object") or "").strip()

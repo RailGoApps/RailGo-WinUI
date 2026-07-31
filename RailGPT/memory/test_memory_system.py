@@ -1,4 +1,5 @@
 import tempfile
+import json
 import unittest
 
 from memory.entity_parser import extract_entities_from_text
@@ -144,6 +145,94 @@ class MemorySystemTest(unittest.TestCase):
         self.assertEqual(session.resolve_anchor("route"), "南京南-徐州东")
         self.assertEqual(session.resolve_anchor("dep"), "南京南")
         self.assertEqual(session.resolve_anchor("arr"), "徐州东")
+
+    def test_station_board_rows_do_not_pollute_hard_anchors(self):
+        session = SessionMemory()
+        session.update_anchor(
+            train="D3009",
+            route="上海虹桥-洛阳龙门",
+            source="facts",
+        )
+        session.update_from_tasks(
+            [
+                {
+                    "action": "query",
+                    "params": {
+                        "domain": "railway",
+                        "object": "station_board",
+                        "id": "南京南|departure",
+                    },
+                }
+            ]
+        )
+        session.update_from_facts(
+            {
+                "queries": [
+                    {
+                        "domain": "railway",
+                        "object": "station_board",
+                        "id": "NKH|departure",
+                        "grounded_slots": {
+                            "station": "南京南",
+                            "direction": "departure",
+                        },
+                        "pretty": (
+                            "LIVE STATION BOARD\n"
+                            "G1948 上海虹桥 -> 洛阳龙门\n"
+                            "D3009 上海虹桥 -> 汉口"
+                        ),
+                        "evidence": [
+                            {
+                                "trainNum": "G1948",
+                                "trainStartStation": "上海虹桥",
+                                "trainEndStation": "洛阳龙门",
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        self.assertEqual(session.resolve_anchor("station"), "南京南")
+        self.assertEqual(session.resolve_anchor("query_object"), "station_board")
+        self.assertIsNone(session.resolve_anchor("train"))
+        self.assertIsNone(session.resolve_anchor("route"))
+        self.assertIsNone(session.resolve_anchor("dep"))
+        self.assertIsNone(session.resolve_anchor("arr"))
+        self.assertNotIn("G1948", session.get_recent_entity_pool().get("trains", []))
+
+    def test_restore_repairs_legacy_station_board_row_anchors(self):
+        session = SessionMemory()
+        session.restore_from_messages(
+            [
+                {"role": "user", "content": "给我看看南京南站的车站大屏"},
+                {"role": "assistant", "content": "南京南站出发大屏快照。"},
+                {"role": "user", "content": "我说南京南"},
+            ],
+            memory_state={
+                "anchors": {
+                    "train": "D3009",
+                    "route": "上海虹桥-洛阳龙门",
+                    "dep": "上海虹桥",
+                    "arr": "洛阳龙门",
+                    "query_type": "station_board",
+                    "query_object": "station_board",
+                },
+                "anchor_priority": {
+                    "train": 90,
+                    "route": 90,
+                    "dep": 90,
+                    "arr": 90,
+                    "query_type": 90,
+                    "query_object": 90,
+                },
+            },
+        )
+
+        self.assertEqual(session.resolve_anchor("station"), "南京南")
+        self.assertEqual(session.resolve_anchor("query_object"), "station_board")
+        self.assertIsNone(session.resolve_anchor("train"))
+        self.assertIsNone(session.resolve_anchor("route"))
 
     def test_export_and_restore_preserve_recent_fact_entity_pool(self):
         session = SessionMemory()
@@ -306,6 +395,89 @@ class MemorySystemTest(unittest.TestCase):
 
         self.assertEqual(bundle["anchor_candidates"].get("train"), "G257")
         self.assertTrue(bundle["memory_context_package"]["soft_context"])
+
+
+    def test_active_topic_frame_keeps_verified_station_board_subject_without_rows(self):
+        session = SessionMemory()
+        session.add_user_message("请查看南京南站出发大屏")
+        session.update_from_tasks(
+            [{"action": "query", "params": {"domain": "railway", "object": "station_board"}}]
+        )
+        session.update_from_facts(
+            {
+                "queries": [
+                    {
+                        "object": "station_board",
+                        "id": "NKH|departure",
+                        "date": "2026-07-31",
+                        "grounded_slots": {"station": "南京南", "direction": "departure"},
+                        "evidence": [{"trainNum": "G1", "trainStartStation": "北京南"}],
+                    }
+                ]
+            }
+        )
+
+        frame = session.get_active_topic_frame()
+        self.assertEqual(frame["status"], "active")
+        self.assertEqual(frame["capability"], "station_board")
+        self.assertEqual(frame["subject"]["station"], "南京南")
+        self.assertEqual(frame["scope"]["direction"], "departure")
+        self.assertNotIn("G1", json.dumps(frame, ensure_ascii=False))
+
+    def test_active_topic_frame_is_persisted_and_exposed_to_router(self):
+        session = SessionMemory()
+        session.add_user_message("南京南站现在运行怎么样")
+        session.update_from_tasks(
+            [{"action": "query", "params": {"domain": "railway", "object": "station_board"}}]
+        )
+        session.update_from_facts(
+            {"queries": [{"object": "station_board", "grounded_slots": {"station": "南京南", "direction": "departure"}}]}
+        )
+
+        restored = SessionMemory()
+        restored.restore_state(session.export_state())
+        view = restored.build_agent_context_view("router", mode="fast-go", user_text="现在车站运行怎么样")
+
+        self.assertEqual(view["active_topic_frame"]["subject"]["station"], "南京南")
+        self.assertEqual(view["active_topic_frame"]["capability"], "station_board")
+
+    def test_failed_tool_result_does_not_become_verified_topic_evidence(self):
+        session = SessionMemory()
+        session.add_user_message("G1晚点了吗")
+        session.update_from_tasks(
+            [{"action": "query", "params": {"domain": "railway", "object": "train_delay"}}]
+        )
+        session.update_from_facts(
+            {"queries": [{"type": "query_error", "object": "train_delay", "id": "G1", "error": "timeout"}]}
+        )
+
+        frame = session.get_active_topic_frame()
+        self.assertEqual(frame["capability"], "train_delay")
+        self.assertEqual(frame["evidence"]["objects"], [])
+
+    def test_new_train_topic_does_not_retain_prior_station_board_scope(self):
+        session = SessionMemory()
+        session.add_user_message("查看福州站出发大屏")
+        session.update_from_tasks(
+            [{"action": "query", "params": {"domain": "railway", "object": "station_board"}}]
+        )
+        session.update_from_facts(
+            {"queries": [{"object": "station_board", "grounded_slots": {"station": "福州", "direction": "departure"}}]}
+        )
+
+        session.add_user_message("G680的运行状态")
+        session.update_from_tasks(
+            [{"action": "query", "params": {"domain": "railway", "object": "train_delay", "id": "G680"}}]
+        )
+        session.update_from_facts(
+            {"queries": [{"object": "train_delay", "id": "G680", "date": "2026-07-31", "evidence": []}]}
+        )
+
+        frame = session.get_active_topic_frame()
+        self.assertEqual(frame["subject"]["train"], "G680")
+        self.assertEqual(frame["subject"]["station"], "")
+        self.assertEqual(frame["scope"]["direction"], "")
+        self.assertEqual(frame["evidence"]["objects"], ["train_delay"])
 
 
 if __name__ == "__main__":

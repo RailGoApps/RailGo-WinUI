@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -43,6 +44,10 @@ class SessionMemory:
             "memory_context_package": {},
         }
         self.context_agent_state: Dict[str, Any] = {}
+        # A compact, session-scoped handoff for the agents that run before the
+        # final answer. Unlike anchors, it describes the *current topic* and
+        # its verified evidence; it is never promoted to long-term memory.
+        self.active_topic_frame: Dict[str, Any] = self._empty_active_topic_frame()
 
         self.followup_mode = False
         self.followup_question = None
@@ -73,6 +78,7 @@ class SessionMemory:
             return
         self.messages.append({"role": "user", "content": text})
         self._remember_text(text, source="user")
+        self._update_active_topic_from_user(text)
         self._trim()
 
     def add_ai_message(self, text: str):
@@ -81,6 +87,212 @@ class SessionMemory:
         self.messages.append({"role": "assistant", "content": text})
         self._remember_text(text, source="assistant")
         self._trim()
+
+    @staticmethod
+    def _empty_active_topic_frame() -> Dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "status": "idle",
+            "subject": {"train": "", "emu": "", "route": "", "station": ""},
+            "capability": "",
+            "intent_family": "",
+            "scope": {"date": "", "direction": ""},
+            "evidence": {"objects": [], "summary_l0": "", "verified_at": ""},
+            "last_user_goal": "",
+            "unresolved_slots": [],
+            "updated_at": "",
+        }
+
+    @staticmethod
+    def _topic_now() -> str:
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _sanitize_active_topic_frame(self, frame: Any) -> Dict[str, Any]:
+        clean = self._empty_active_topic_frame()
+        if not isinstance(frame, dict):
+            return clean
+
+        clean["status"] = "active" if str(frame.get("status") or "") == "active" else "idle"
+        subject = frame.get("subject") if isinstance(frame.get("subject"), dict) else {}
+        for key in clean["subject"]:
+            clean["subject"][key] = str(subject.get(key) or "").strip()[:120]
+        clean["capability"] = str(frame.get("capability") or "").strip()[:80]
+        clean["intent_family"] = str(frame.get("intent_family") or "").strip()[:120]
+        scope = frame.get("scope") if isinstance(frame.get("scope"), dict) else {}
+        clean["scope"]["date"] = str(scope.get("date") or "").strip()[:32]
+        direction = str(scope.get("direction") or "").strip().lower()
+        clean["scope"]["direction"] = direction if direction in {"arrival", "departure"} else ""
+        evidence = frame.get("evidence") if isinstance(frame.get("evidence"), dict) else {}
+        objects = evidence.get("objects") if isinstance(evidence.get("objects"), list) else []
+        clean["evidence"]["objects"] = list(
+            dict.fromkeys(str(item or "").strip()[:80] for item in objects if str(item or "").strip())
+        )[:4]
+        clean["evidence"]["summary_l0"] = str(evidence.get("summary_l0") or "").strip()[:480]
+        clean["evidence"]["verified_at"] = str(evidence.get("verified_at") or "").strip()[:32]
+        clean["last_user_goal"] = str(frame.get("last_user_goal") or "").strip()[:480]
+        slots = frame.get("unresolved_slots") if isinstance(frame.get("unresolved_slots"), list) else []
+        clean["unresolved_slots"] = list(
+            dict.fromkeys(str(item or "").strip()[:80] for item in slots if str(item or "").strip())
+        )[:8]
+        clean["updated_at"] = str(frame.get("updated_at") or "").strip()[:32]
+        if (
+            clean["capability"]
+            or any(clean["subject"].values())
+            or clean["evidence"]["objects"]
+            or clean["last_user_goal"]
+        ):
+            clean["status"] = "active"
+        return clean
+
+    def _touch_active_topic(self):
+        self.active_topic_frame["updated_at"] = self._topic_now()
+        if any(self.active_topic_frame.get("subject", {}).values()) or self.active_topic_frame.get("capability"):
+            self.active_topic_frame["status"] = "active"
+
+    def _start_new_active_topic(self, last_user_goal: str = "") -> Dict[str, Any]:
+        """Discard a completed subject before a new explicit subject takes over."""
+        frame = self._empty_active_topic_frame()
+        frame["last_user_goal"] = str(last_user_goal or "").strip()[:480]
+        return frame
+
+    @staticmethod
+    def _explicit_train_number(value: Any) -> str:
+        match = re.search(r"[GDKTZC]\d{1,5}", str(value or "").upper())
+        return match.group(0) if match else ""
+
+    def _update_active_topic_from_user(self, text: str):
+        """Record only explicit user entities; no assistant prose becomes topic truth."""
+        frame = self._sanitize_active_topic_frame(self.active_topic_frame)
+        entities = extract_entities_from_text(text)
+        subject = frame["subject"]
+        trains = entities.get("trains") or []
+        emus = entities.get("emus") or []
+        routes = entities.get("routes") or []
+        stations = entities.get("stations") or []
+        dates = entities.get("dates") or []
+        explicit_train = str(trains[0]).strip() if trains else self._explicit_train_number(text)
+        explicit_route = str(routes[0]).strip() if routes else ""
+        explicit_station = str(stations[0]).strip() if stations else ""
+        # A newly named primary subject starts a new topic. This prevents a
+        # prior board snapshot from lending its station, direction, or facts to
+        # a later train-status/path question.
+        if (
+            (
+                explicit_train
+                and explicit_train != subject.get("train")
+                and (frame.get("capability") or any(subject.values()) or frame.get("evidence", {}).get("objects"))
+            )
+            or (explicit_route and subject.get("route") and explicit_route != subject.get("route"))
+            or (
+                explicit_station
+                and not explicit_train
+                and not explicit_route
+                and subject.get("station")
+                and explicit_station != subject.get("station")
+            )
+        ):
+            frame = self._start_new_active_topic(text)
+            subject = frame["subject"]
+        if trains:
+            subject["train"] = str(trains[0]).strip()
+        if emus:
+            subject["emu"] = str(emus[0]).strip()
+        if routes:
+            subject["route"] = str(routes[0]).strip()
+        if stations:
+            subject["station"] = str(stations[0]).strip()
+        if dates:
+            frame["scope"]["date"] = str(dates[0]).strip()
+        frame["last_user_goal"] = str(text or "").strip()[:480]
+        self.active_topic_frame = frame
+        self._touch_active_topic()
+
+    def _update_active_topic_from_task(self, task: Dict[str, Any]):
+        if not isinstance(task, dict):
+            return
+        params = task.get("params") if isinstance(task.get("params"), dict) else {}
+        obj = str(params.get("object") or "").strip()
+        if not obj:
+            return
+        frame = self._sanitize_active_topic_frame(self.active_topic_frame)
+        task_entities = extract_entities_from_tasklike_items([task])
+        task_train = best_entity_value(task_entities, "trains") or self._explicit_train_number(params.get("id"))
+        if task_train and frame["subject"].get("train") and task_train != frame["subject"].get("train"):
+            frame = self._start_new_active_topic(frame.get("last_user_goal") or "")
+            frame["subject"]["train"] = task_train
+        frame["capability"] = obj
+        frame["intent_family"] = obj
+        date = str(params.get("date") or "").strip()
+        if date:
+            frame["scope"]["date"] = date
+        direction = str(params.get("direction") or "").strip().lower()
+        if direction in {"arrival", "departure"}:
+            frame["scope"]["direction"] = direction
+        elif obj not in {"station_board", "train_station_access"}:
+            frame["scope"]["direction"] = ""
+        self.active_topic_frame = frame
+        self._touch_active_topic()
+
+    def _update_active_topic_from_fact(self, query: Dict[str, Any]):
+        """Turn a successful tool result into a compact verified topic handoff."""
+        if not isinstance(query, dict):
+            return
+        obj = str(query.get("object") or "").strip()
+        result_type = str(query.get("type") or "").strip().lower()
+        if not obj or result_type in {"query_error", "query_empty"} or query.get("error") or query.get("query_error"):
+            return
+        frame = self._sanitize_active_topic_frame(self.active_topic_frame)
+        slots = query.get("grounded_slots") if isinstance(query.get("grounded_slots"), dict) else {}
+        query_id = str(query.get("id") or "").strip()
+        query_train = str(slots.get("train") or "").strip().upper()
+        if not query_train and obj in {"train_delay", "path_detail", "path_past", "train", "stopcheck"}:
+            query_train = query_id.upper()
+        query_station = str(slots.get("station") or "").strip()
+        if (
+            (query_train and frame["subject"].get("train") and query_train != frame["subject"].get("train"))
+            or (
+                query_station
+                and not query_train
+                and frame["subject"].get("station")
+                and query_station != frame["subject"].get("station")
+            )
+        ):
+            frame = self._start_new_active_topic(frame.get("last_user_goal") or "")
+
+        frame["capability"] = obj
+        frame["intent_family"] = obj
+        subject = frame["subject"]
+        for key in ("train", "emu", "route", "station"):
+            value = str(slots.get(key) or "").strip()
+            if value:
+                subject[key] = value
+        if query_train:
+            subject["train"] = query_train
+        date = str(query.get("date") or slots.get("date") or "").strip()
+        if date:
+            frame["scope"]["date"] = date
+        direction = str(slots.get("direction") or "").strip().lower()
+        if direction in {"arrival", "departure"}:
+            frame["scope"]["direction"] = direction
+        elif obj not in {"station_board", "train_station_access"}:
+            frame["scope"]["direction"] = ""
+
+        evidence = frame["evidence"]
+        evidence["objects"] = list(dict.fromkeys([*evidence.get("objects", []), obj]))[-4:]
+        subject_label = subject.get("station") or subject.get("train") or subject.get("route") or query_id
+        scope_label = frame["scope"].get("direction") or frame["scope"].get("date")
+        evidence["summary_l0"] = "已验证工具事实：{}{}{}".format(
+            obj,
+            f"（{subject_label}）" if subject_label else "",
+            f"，范围：{scope_label}" if scope_label else "",
+        )
+        evidence["verified_at"] = self._topic_now()
+        frame["unresolved_slots"] = []
+        self.active_topic_frame = frame
+        self._touch_active_topic()
+
+    def get_active_topic_frame(self) -> Dict[str, Any]:
+        return self._sanitize_active_topic_frame(self.active_topic_frame)
 
     def _trim(self, max_len: int = 120):
         if len(self.messages) > max_len:
@@ -191,7 +403,7 @@ class SessionMemory:
             }
 
         package = {
-            "schema_version": 1,
+            "schema_version": 2,
             "mode": str(mode or ""),
             "latest_user_text": str(user_text or ""),
             "dialogue_history": history,
@@ -204,6 +416,7 @@ class SessionMemory:
             "explicit_entities": extract_entities_from_text(user_text),
             "date_resolution": date_resolution or {},
             "working_anchors": self.get_anchor_snapshot(),
+            "active_topic_frame": self.get_active_topic_frame(),
             "tool_contract_summary": capability_catalog(level="l0"),
         }
         package["context_fingerprint"] = context_fingerprint(
@@ -213,6 +426,7 @@ class SessionMemory:
                 "dialogue_history": history,
                 "followup_contract": followup_contract,
                 "working_anchors": package["working_anchors"],
+                "active_topic_frame": package["active_topic_frame"],
                 "hard_anchors": memory_package.get("hard_anchors", {}) if isinstance(memory_package, dict) else {},
                 "profile_index": [
                     str(item.get("id") or "")
@@ -283,6 +497,15 @@ class SessionMemory:
                 working_date = str((scoped.get("working_anchors") or {}).get("date") or "").strip()
                 scoped["working_anchors"] = {"date": working_date} if working_date else {}
 
+        if role == "date":
+            # This is a contextual candidate only; explicit user dates remain
+            # authoritative in the date-normalizer contract.
+            frame = self.get_active_topic_frame()
+            scoped["active_topic_frame"] = {
+                "status": frame.get("status", "idle"),
+                "scope": {"date": (frame.get("scope") or {}).get("date", "")},
+            }
+
         return scoped
 
     def format_agent_context_package(
@@ -328,6 +551,7 @@ class SessionMemory:
     def _reset_anchors(self):
         self.last_train: Optional[str] = None
         self.last_emu: Optional[str] = None
+        self.last_station: Optional[str] = None
         self.last_query_type: Optional[str] = None
         self.last_route: Optional[str] = None
         self.last_dep: Optional[str] = None
@@ -337,6 +561,7 @@ class SessionMemory:
         self._anchor_priority = {
             "train": -1,
             "emu": -1,
+            "station": -1,
             "query_type": -1,
             "route": -1,
             "dep": -1,
@@ -347,6 +572,7 @@ class SessionMemory:
         self._anchor_source = {
             "train": "",
             "emu": "",
+            "station": "",
             "query_type": "",
             "route": "",
             "dep": "",
@@ -371,6 +597,7 @@ class SessionMemory:
             {
                 "train": "last_train",
                 "emu": "last_emu",
+                "station": "last_station",
                 "query_type": "last_query_type",
                 "route": "last_route",
                 "dep": "last_dep",
@@ -381,11 +608,32 @@ class SessionMemory:
             normalized,
         )
 
+    def _clear_anchor_values(self, *keys: str):
+        attribute_map = {
+            "train": "last_train",
+            "emu": "last_emu",
+            "station": "last_station",
+            "query_type": "last_query_type",
+            "route": "last_route",
+            "dep": "last_dep",
+            "arr": "last_arr",
+            "date": "last_date",
+            "query_object": "last_object",
+        }
+        for key in keys:
+            attribute = attribute_map.get(key)
+            if not attribute:
+                continue
+            setattr(self, attribute, None)
+            self._anchor_priority[key] = -1
+            self._anchor_source[key] = ""
+
     def update_anchor(
         self,
         *,
         train: str | None = None,
         emu: str | None = None,
+        station: str | None = None,
         query_type: str | None = None,
         route: str | None = None,
         dep: str | None = None,
@@ -397,6 +645,7 @@ class SessionMemory:
     ):
         self._set_anchor_value("train", train, source=source, force=force)
         self._set_anchor_value("emu", emu, source=source, force=force)
+        self._set_anchor_value("station", station, source=source, force=force)
         self._set_anchor_value("query_type", query_type, source=source, force=force)
         if route:
             self._set_anchor_value("route", route, source=source, force=force)
@@ -410,11 +659,21 @@ class SessionMemory:
         self._set_anchor_value("query_object", query_object, source=source, force=force)
 
     def update_from_tasks(self, tasks: Iterable[Dict[str, Any]]):
-        entities = extract_entities_from_tasklike_items(tasks)
+        task_items = list(tasks or [])
+        if any(
+            isinstance(task, dict)
+            and isinstance(task.get("params"), dict)
+            and str(task["params"].get("object") or "").strip() == "station_board"
+            for task in task_items
+        ):
+            self._clear_anchor_values("train", "emu", "route", "dep", "arr")
+
+        entities = extract_entities_from_tasklike_items(task_items)
         self._remember_entities(entities, source="tasks")
-        for task in tasks or []:
+        for task in task_items:
             if not isinstance(task, dict):
                 continue
+            self._update_active_topic_from_task(task)
             params = task.get("params", {})
             if isinstance(params, dict):
                 obj = str(params.get("object") or "").strip()
@@ -425,12 +684,35 @@ class SessionMemory:
         if not isinstance(facts, dict):
             return
 
-        query_entities = extract_entities_from_tasklike_items(facts.get("queries", []))
+        queries = list(facts.get("queries", []) or [])
+        aggregate_objects = {"station_board"}
+        aggregate_queries = [
+            query for query in queries
+            if isinstance(query, dict) and str(query.get("object") or "").strip() in aggregate_objects
+        ]
+        regular_queries = [
+            query for query in queries
+            if not (isinstance(query, dict) and str(query.get("object") or "").strip() in aggregate_objects)
+        ]
+
+        query_entities = extract_entities_from_tasklike_items(regular_queries)
         self._remember_entities(query_entities, source="facts")
 
-        for query in facts.get("queries", []):
+        # A station board is an aggregate snapshot. Its row trains and row ODs
+        # are evidence, not the subject of the conversation.
+        for query in aggregate_queries:
+            subject_query = {
+                key: query.get(key)
+                for key in ("object", "id", "date", "grounded_slots")
+                if query.get(key) is not None
+            }
+            subject_entities = extract_entities_from_tasklike_items([subject_query])
+            self._remember_entities(subject_entities, source="facts")
+
+        for query in queries:
             if not isinstance(query, dict):
                 continue
+            self._update_active_topic_from_fact(query)
             obj = str(query.get("object") or "").strip()
             if obj:
                 self.update_anchor(query_type=obj, query_object=obj, source="facts")
@@ -454,6 +736,7 @@ class SessionMemory:
             self.update_anchor(
                 train=best_entity_value(merged, "trains"),
                 emu=best_entity_value(merged, "emus"),
+                station=best_entity_value(merged, "stations"),
                 route=route,
                 dep=dep,
                 arr=arr,
@@ -476,6 +759,7 @@ class SessionMemory:
         snapshot = {
             "train": self.last_train or "",
             "emu": self.last_emu or "",
+            "station": self.last_station or "",
             "route": self.last_route or "",
             "dep": self.last_dep or "",
             "arr": self.last_arr or "",
@@ -612,6 +896,7 @@ class SessionMemory:
         direct_map = {
             "train": self.last_train,
             "emu": self.last_emu,
+            "station": self.last_station,
             "route": self.last_route,
             "dep": self.last_dep,
             "arr": self.last_arr,
@@ -710,6 +995,7 @@ class SessionMemory:
         self.messages = []
         self.recent_entities = []
         self._reset_anchors()
+        self.active_topic_frame = self._empty_active_topic_frame()
         self.set_memory_recall(None)
         self.set_context_agent_state(None)
 
@@ -729,12 +1015,13 @@ class SessionMemory:
 
     def export_state(self) -> Dict[str, Any]:
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "anchors": self.get_anchor_snapshot(),
             "anchor_priority": dict(self._anchor_priority),
             "anchor_source": dict(self._anchor_source),
             "recent_entities": self._sanitize_recent_entities(self.recent_entities, limit=12),
             "context_agent_state": dict(self.context_agent_state),
+            "active_topic_frame": self.get_active_topic_frame(),
             "followup_mode": self.followup_mode,
             "followup_question": self.followup_question,
             "followup_slots": dict(self.followup_slots),
@@ -749,6 +1036,7 @@ class SessionMemory:
             self.update_anchor(
                 train=anchors.get("train"),
                 emu=anchors.get("emu"),
+                station=anchors.get("station"),
                 query_type=anchors.get("query_type"),
                 route=anchors.get("route"),
                 dep=anchors.get("dep"),
@@ -778,7 +1066,42 @@ class SessionMemory:
         if isinstance(recent_entities, list):
             self.recent_entities = self._sanitize_recent_entities(recent_entities, limit=20)
 
+        if self.last_object == "station_board":
+            # Older sessions could persist one row's train and OD as the board
+            # subject. Repair them lazily while preserving the queried station.
+            self._clear_anchor_values("train", "emu", "route", "dep", "arr")
+            if not self.last_station:
+                for message in reversed(self.messages):
+                    if message.get("role") != "user":
+                        continue
+                    entities = extract_entities_from_text(str(message.get("content") or ""))
+                    station = best_entity_value(entities, "stations")
+                    if station:
+                        self.update_anchor(station=station, source="memory_state", force=True)
+                        break
+
         self.set_context_agent_state(state.get("context_agent_state"))
+        restored_frame = self._sanitize_active_topic_frame(state.get("active_topic_frame"))
+        if restored_frame.get("status") != "active" and self.last_object == "station_board" and self.last_station:
+            # Old saved sessions had only anchors. Rebuild the safe aggregate
+            # station-board topic, never one of its row trains or routes.
+            restored_frame = self._empty_active_topic_frame()
+            restored_frame.update(
+                {
+                    "status": "active",
+                    "subject": {"train": "", "emu": "", "route": "", "station": self.last_station},
+                    "capability": "station_board",
+                    "intent_family": "station_board",
+                    "scope": {"date": self.last_date or "", "direction": ""},
+                    "evidence": {
+                        "objects": ["station_board"],
+                        "summary_l0": f"已恢复本会话车站大屏主题（{self.last_station}）",
+                        "verified_at": "",
+                    },
+                    "updated_at": self._topic_now(),
+                }
+            )
+        self.active_topic_frame = restored_frame
 
         if state.get("followup_mode"):
             self.enter_followup(
@@ -803,11 +1126,18 @@ class SessionMemory:
             "slot": slot or [],
             "context": context or {},
         }
+        frame = self._sanitize_active_topic_frame(self.active_topic_frame)
+        frame["unresolved_slots"] = list(slot or [])[:8]
+        self.active_topic_frame = frame
+        self._touch_active_topic()
 
     def exit_followup(self):
         self.followup_mode = False
         self.followup_question = None
         self.followup_slots = {}
+        frame = self._sanitize_active_topic_frame(self.active_topic_frame)
+        frame["unresolved_slots"] = []
+        self.active_topic_frame = frame
 
     def in_followup(self) -> bool:
         return self.followup_mode

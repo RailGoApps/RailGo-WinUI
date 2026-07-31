@@ -188,13 +188,24 @@ def _build_railgo_v2_views(query: Dict[str, Any], raw_payload: Any) -> List[Dict
 
     if obj == "station_board":
         rows = [item for item in (data or []) if isinstance(item, dict)]
+        grounded_slots = query.get("grounded_slots") if isinstance(query.get("grounded_slots"), dict) else {}
+        station_name = str(grounded_slots.get("station") or "?").strip()
+        direction = str(grounded_slots.get("direction") or "?").strip()
         views = [
             _make_view(
                 query,
                 view_id="overview",
                 view_type="station_board_overview",
                 priority=130,
-                lines=freshness_lines + [f"VISIBLE_ROW_COUNT: {len(rows)}", "ROWS_ARE_LIVE_AND_MAY_CHANGE"],
+                lines=freshness_lines + [
+                    "TOOL_EXECUTION_STATUS: completed",
+                    f"BOARD_STATION: {station_name}",
+                    f"BOARD_DIRECTION: {direction}",
+                    f"VISIBLE_ROW_COUNT: {len(rows)}",
+                    "TIME_SEMANTICS: OBSERVED_AT is the exact snapshot time; do not estimate elapsed time or rename it as another clock time",
+                    "SNAPSHOT_BOUNDARY: rows may change after OBSERVED_AT; never claim continuous real-time updates",
+                    "SUBJECT_BOUNDARY: row origins, destinations, and train numbers are board entries, not the queried station or conversation anchor",
+                ],
             )
         ]
         for batch_index, batch in enumerate(_chunked(rows, 8), start=1):

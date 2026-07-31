@@ -66,6 +66,105 @@ class FastRouterTest(unittest.TestCase):
         router.llm = DummyLLM(mode="fast", response=response)
         return router, memory
 
+    def test_semantic_council_receives_verified_active_topic_frame(self):
+        router, memory = self.make_router()
+        memory.add_user_message(f"{NANJING_SOUTH}站出发大屏")
+        memory.update_from_tasks(
+            [{"action": "query", "params": {"domain": "railway", "object": "station_board"}}]
+        )
+        memory.update_from_facts(
+            {
+                "queries": [
+                    {
+                        "object": "station_board",
+                        "grounded_slots": {"station": NANJING_SOUTH, "direction": "departure"},
+                    }
+                ]
+            }
+        )
+        memory.add_ai_message(f"{NANJING_SOUTH}站出发大屏快照已查询。")
+        user_text = "现在车站运行怎么样"
+        context = router._build_fast_route_context(user_text, session=memory, context_agent_result={})
+
+        messages = router._build_semantic_router_council_messages(context)
+        prompt = "\n".join(str(message.get("content") or "") for message in messages)
+
+        self.assertIn("active_topic_frame", prompt)
+        self.assertIn(NANJING_SOUTH, prompt)
+        self.assertIn("station_board", prompt)
+
+    def test_verified_station_board_topic_routes_implicit_status_followup(self):
+        vote = {
+            "agent": "tool_intent_agent",
+            "intent": "station_board_current",
+            "preferred_action": "query",
+            "confidence": 96,
+            "reason": "the active station-board topic supplies the omitted station",
+            "required_object": "station_board",
+            "query_id": "",
+            "query_date": "",
+            "grounded_slots": {"station": NANJING_SOUTH, "direction": "departure"},
+        }
+        router, memory = self.make_router(
+            response=json.dumps({"votes": [vote], "consensus": vote, "conflict": False}, ensure_ascii=False)
+        )
+        memory.add_user_message(f"{NANJING_SOUTH}站出发大屏")
+        memory.update_from_tasks(
+            [{"action": "query", "params": {"domain": "railway", "object": "station_board"}}]
+        )
+        memory.update_from_facts(
+            {"queries": [{"object": "station_board", "grounded_slots": {"station": NANJING_SOUTH, "direction": "departure"}}]}
+        )
+        memory.add_ai_message(f"{NANJING_SOUTH}站出发大屏快照已查询。")
+
+        tasks = router.route("现在车站运行怎么样", memory)
+
+        self.assertEqual(tasks[0]["action"], "query")
+        self.assertEqual(tasks[0]["params"]["object"], "station_board")
+        self.assertEqual(tasks[0]["params"]["id"], f"{NANJING_SOUTH}|departure")
+
+    def test_bureau_followup_uses_active_train_not_stale_station_board(self):
+        vote = {
+            "agent": "tool_intent_agent",
+            "intent": "train_path",
+            "preferred_action": "query",
+            "confidence": 97,
+            "reason": "the active G680 train subject supplies the omitted train for its operating bureau",
+            "required_object": "path_detail",
+            "query_id": "G680",
+            "query_date": "",
+            "grounded_slots": {"train": "G680"},
+        }
+        router, memory = self.make_router(
+            response=json.dumps({"votes": [vote], "consensus": vote, "conflict": False}, ensure_ascii=False)
+        )
+
+        # An older station-board topic is deliberately left in the dialogue.
+        memory.add_user_message(f"{FUZHOU}站出发大屏")
+        memory.update_from_tasks(
+            [{"action": "query", "params": {"domain": "railway", "object": "station_board"}}]
+        )
+        memory.update_from_facts(
+            {"queries": [{"object": "station_board", "grounded_slots": {"station": FUZHOU, "direction": "departure"}}]}
+        )
+        memory.add_ai_message(f"{FUZHOU}站出发大屏快照已查询。")
+
+        memory.add_user_message("G680今天有没有晚点？")
+        memory.update_from_tasks(
+            [{"action": "query", "params": {"domain": "railway", "object": "train_delay", "id": "G680"}}]
+        )
+        memory.update_from_facts(
+            {"queries": [{"object": "train_delay", "query_id": "G680", "grounded_slots": {"train": "G680"}}]}
+        )
+        memory.add_ai_message("G680当前运行状态已查询。")
+
+        tasks = router.route("分析这辆车服务的城市群，看看这辆车是什么路局的？", memory)
+
+        self.assertEqual(tasks[0]["action"], "query")
+        self.assertEqual(tasks[0]["params"]["object"], "path_detail")
+        self.assertEqual(tasks[0]["params"]["id"], "G680")
+        self.assertEqual(memory.get_active_topic_frame()["subject"]["train"], "G680")
+
     @staticmethod
     def semantic_chat_response(intent="scenery_line_inference"):
         vote = {
@@ -425,6 +524,17 @@ class FastRouterTest(unittest.TestCase):
         self.assertIn("\u5230\u8fbe\u7ad9", tasks[0]["params"]["question"])
         self.assertEqual(tasks[0]["params"]["slot"], ["dep", "arr"])
 
+    def test_safe_parse_failure_never_exposes_internal_router_error(self):
+        router, _memory = self.make_router()
+
+        tasks = router._safe_parse_tasks("this is not JSON")
+
+        self.assertEqual(tasks[0]["action"], "chat")
+        message = tasks[0]["params"]["message"].lower()
+        self.assertNotIn("router", message)
+        self.assertNotIn("json", message)
+        self.assertIn("continue naturally", message)
+
     def test_invalid_route_like_fast_hit_falls_back_to_llm_pending(self):
         router, memory = self.make_router(
             response='{"action":"pending","params":{"question":"请确认终点站"}}'
@@ -676,6 +786,27 @@ class FastRouterTest(unittest.TestCase):
         self.assertEqual(tasks[1]["params"]["id"], "G71")
         self.assertEqual(tasks[1]["params"]["date"], "2026-03-24")
         self.assertEqual(router.llm.generate_called, 0)
+
+    def test_fast_router_verifies_user_named_train_collection_before_chat_fallback(self):
+        router, memory = self.make_router()
+        memory.add_user_message("我最喜欢的车是 G20，还有 G3089、G1654 和 G1677 系列。")
+        memory.add_ai_message("我刚才概述了这些车的路线，但这段说明还没有经过工具核验。")
+
+        tasks = router.route("你确定它们的路线是这样的？？？你最好查证一下！", memory)
+
+        self.assertEqual(router.llm.generate_called, 0)
+        self.assertEqual(router.llm.semantic_generate_called, 0)
+        self.assertEqual([task["params"]["object"] for task in tasks], ["path_detail"] * 4)
+        self.assertEqual([task["params"]["id"] for task in tasks], ["G20", "G3089", "G1654", "G1677"])
+
+    def test_fast_router_terminal_verification_preserves_multiple_explicit_trains(self):
+        router, memory = self.make_router()
+
+        tasks = router.route("你确定 G20 和 G3089 的路线是这个？", memory)
+
+        self.assertEqual(router.llm.generate_called, 0)
+        self.assertEqual([task["params"]["object"] for task in tasks], ["path_detail", "path_detail"])
+        self.assertEqual([task["params"]["id"] for task in tasks], ["G20", "G3089"])
 
     def test_fast_router_hits_stopcheck_for_train_and_station(self):
         router, memory = self.make_router()

@@ -17,6 +17,42 @@ def make_rundays(date_text: str, count: int = 80):
 
 
 class FastToolViewsTest(unittest.TestCase):
+    def test_station_board_view_preserves_subject_and_snapshot_semantics(self):
+        query = {
+            "domain": "railway",
+            "object": "station_board",
+            "id": "NKH|departure",
+            "grounded_slots": {
+                "station": NANJING_SOUTH,
+                "direction": "departure",
+            },
+            "freshness": {
+                "fetched_at": "2026-07-31T11:46:04+08:00",
+                "age_seconds": 0,
+            },
+        }
+        rows = [
+            {
+                "trainNum": "G1948",
+                "time": "11:41",
+                "bigScreenStatus": "检票",
+                "timeDelay": 0,
+                "trainStartStation": "上海虹桥",
+                "trainEndStation": "洛阳龙门",
+                "bigScreenPort": ["A20", "A21"],
+            }
+        ]
+
+        views = build_fast_views(query, rows)
+        overview = views[0]["text"]
+
+        self.assertIn("TOOL_EXECUTION_STATUS: completed", overview)
+        self.assertIn(f"BOARD_STATION: {NANJING_SOUTH}", overview)
+        self.assertIn("BOARD_DIRECTION: departure", overview)
+        self.assertIn("OBSERVED_AT: 2026-07-31T11:46:04+08:00", overview)
+        self.assertIn("SNAPSHOT_BOUNDARY", overview)
+        self.assertIn("SUBJECT_BOUNDARY", overview)
+
     def test_s2s_views_split_large_candidate_pool(self):
         query = {
             "domain": "railway",

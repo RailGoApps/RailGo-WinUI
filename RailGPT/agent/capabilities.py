@@ -287,7 +287,7 @@ _BASE_CAPABILITIES: Dict[str, ToolCapability] = {
             workflow=("station_to_station_mini", "smartemu_analysis"),
             execution_strategy="sequential",
         ),
-        _capability("path_detail", "train_path", ("train",), ("date",), "dated_timetable", "Train timetable and stop path.", "Use for origin, destination, stops, scheduled times and line membership.", providers=("local_cache", "railgo_v2_train_main", "railgo_v1_train")),
+        _capability("path_detail", "train_path", ("train",), ("date",), "dated_timetable", "Train timetable, stop path, and operating-bureau profile.", "Use for origin, destination, stops, scheduled times, line membership, and a concrete train's operating bureau / railway group.", providers=("local_cache", "railgo_v2_train_main", "railgo_v1_train")),
         _capability("path_future", "train_path", ("train", "date"), (), "future_timetable", "Future train timetable path.", "Use only for an explicitly future timetable date."),
         _capability("path_past", "train_path", ("train", "date"), (), "past_timetable", "Historical train timetable path.", "Use only for an explicitly historical timetable date."),
         _capability("path_stopcheck", "train_stop_history", ("trains", "stations"), ("date",), "timetable_history", "Stop history and stop matrix.", "Use for whether/when trains stopped or began stopping at named stations."),
@@ -420,9 +420,9 @@ _CAPABILITY_CONTRACTS: Dict[str, Dict[str, Any]] = {
     ),
     "path_detail": _contract(
         "id=纯车次号；date 可省略并默认查询日",
-        ("单车次始终站、经停、图定时刻、路线、途经线路",),
+        ("单车次始终站、经停、图定时刻、路线、途经线路、担当路局/铁路局归属",),
         ("OD列车推荐；实时晚点；历史停站变化；地图坐标",),
-        examples=("G6742的路线是什么", "G20具体经停站"),
+        examples=("G6742的路线是什么", "G20具体经停站", "G680是什么路局担当"),
     ),
     "path_future": _contract(
         "id=纯车次号；date=用户明确给出的未来日期",

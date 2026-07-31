@@ -274,6 +274,7 @@ class MemoryOrchestrator:
         for entity_key, anchor_key in (
             ("trains", "train"),
             ("emus", "emu"),
+            ("stations", "station"),
             ("routes", "route"),
             ("dates", "date"),
             ("objects", "query_object"),

@@ -28,6 +28,13 @@ ROUTE_OBJECTS = {
     "s2s_bureau_filter",
 }
 
+STATION_SUBJECT_OBJECTS = {
+    "station",
+    "telecode",
+    "station_board",
+    "train_station_access",
+}
+
 ROUTE_SEPARATORS = ("->", "=>", "→", "到", "至", "开往", "前往", "去往", "-")
 ROUTE_FALLBACK_HINTS = (
     "从",
@@ -260,6 +267,22 @@ def _extract_route_from_object(obj: str, obj_id: str) -> str | None:
     return None
 
 
+def _station_subject_from_object(obj: str, obj_id: str, params: Dict[str, Any]) -> str | None:
+    grounded_slots = params.get("grounded_slots") if isinstance(params.get("grounded_slots"), dict) else {}
+    explicit_station = str(grounded_slots.get("station") or "").strip()
+    if explicit_station:
+        return station_dict.name_of(explicit_station.upper()) or _resolve_station_name(explicit_station) or explicit_station
+
+    if obj not in STATION_SUBJECT_OBJECTS or not obj_id:
+        return None
+
+    pieces = [piece.strip() for piece in obj_id.split("|") if piece.strip()]
+    if not pieces:
+        return None
+    station_token = pieces[1] if obj == "train_station_access" and len(pieces) >= 2 else pieces[0]
+    return station_dict.name_of(station_token.upper()) or _resolve_station_name(station_token)
+
+
 def extract_entities_from_tasklike_items(items: Iterable[Dict[str, Any]]) -> Dict[str, List[str]]:
     trains: List[str] = []
     emus: List[str] = []
@@ -292,6 +315,9 @@ def extract_entities_from_tasklike_items(items: Iterable[Dict[str, Any]]) -> Dic
                 if "-" in route:
                     dep, arr = route.split("-", 1)
                     stations.extend([dep, arr])
+            station_subject = _station_subject_from_object(obj, obj_id, params)
+            if station_subject:
+                stations.append(station_subject)
             tokens.extend(extract_text_tokens(obj_id))
 
         for extra_key in ("pretty", "summary", "content", "message"):

@@ -64,6 +64,8 @@ class RailGoV2ToolsTest(unittest.TestCase):
         self.assertEqual(result["cache_status"], "network")
         self.assertEqual(cached["cache_status"], "hit")
         self.assertEqual(result["freshness"]["age_seconds"], 0)
+        self.assertEqual(result["grounded_slots"]["direction"], "departure")
+        self.assertEqual(result["grounded_slots"]["station"], station_dict.name_of("JWH"))
         self.assertIn("RAILGO_OP_CACHE_HIT", [state for state, _ in psw.states])
         self.assertNotIn("QUERYING", [state for state, _ in psw.states])
 

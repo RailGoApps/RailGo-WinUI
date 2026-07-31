@@ -98,6 +98,7 @@ class FastPlusContextAgent:
                     "You are RailGPT FAST Context Agent.\n"
                     "Resolve omitted references in the latest user turn for downstream agents.\n"
                     "Use conversation context only to resolve omitted references such as this route, these trains, that date, or recommended options.\n"
+                    "The ActiveTopicFrame is a compact, session-local handoff created from explicit user turns and verified tool facts. Use it to resolve a genuine continuation, but never let it override an explicit entity or date in the latest user turn.\n"
                     "Do not invent trains, stations, routes, or dates that are not grounded in the context snapshot.\n"
                     "The latest user turn is authoritative. If it explicitly names a date, preserve that date in rewritten_user_text and resolved_date; context dates are only fallback when the latest turn omits a date.\n"
                     "Never replace an explicit user date with today, current date, or any date from memory.\n"
@@ -235,6 +236,11 @@ class FastPlusContextAgent:
         anchors = session.get_anchor_snapshot()
         if anchors:
             lines.append("anchors=" + ", ".join(f"{k}={v}" for k, v in anchors.items()))
+
+        if hasattr(session, "get_active_topic_frame"):
+            frame = session.get_active_topic_frame()
+            if frame.get("status") == "active":
+                lines.append("active_topic_frame=" + json.dumps(frame, ensure_ascii=False, separators=(",", ":")))
 
         recent_pool = session.get_recent_entity_pool(max_items=4)
         for key in ("trains", "routes", "dates", "stations", "objects"):

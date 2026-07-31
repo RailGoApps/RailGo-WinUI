@@ -591,6 +591,29 @@ class Router:
         context["capability_continuation_candidate"] = self._has_capability_continuation_candidate(context)
         proposals = self._collect_fast_route_proposals(context)
 
+        # This is a capability gate, not an intent heuristic: once the current
+        # turn explicitly challenges a prior railway claim and the dialogue
+        # contains referenced trains, path evidence is mandatory.  A semantic
+        # chat vote may explain the result afterwards, but cannot replace the
+        # evidence collection itself.
+        evidence_proposal = next(
+            (
+                proposal
+                for proposal in proposals
+                if proposal.get("name") == "context_path_evidence_expert"
+                and isinstance(proposal.get("tasks"), list)
+            ),
+            None,
+        )
+        if evidence_proposal:
+            evidence_tasks = self._repair_fast_tasks(evidence_proposal["tasks"], strict_invalid=False)
+            if evidence_tasks:
+                self._set_router_state(
+                    AgentState.ROUTER_FAST_EXPERTS,
+                    "contextual evidence contract selected path verification before semantic presentation",
+                )
+                return evidence_tasks
+
         compact_text = re.sub(r"\s+", "", str(context.get("text") or ""))
         needs_live_tool_arbitration = self._needs_live_operational_tool_arbitration(context)
         needs_local_conflict_arbitration = self._has_pending_chat_proposal_conflict(proposals)
@@ -828,6 +851,26 @@ class Router:
                 self._merge_entity_pool(pool, {pool_key: [value]})
 
         return pool
+
+    @staticmethod
+    def _recent_user_train_collection(context: dict | None, limit: int = 4) -> list[str]:
+        """Return the latest user-declared multi-train collection in dialogue order."""
+
+        if not isinstance(context, dict):
+            return []
+        package = context.get("agent_context_package") or {}
+        history = package.get("dialogue_history") if isinstance(package, dict) else []
+        if not isinstance(history, list):
+            return []
+
+        for message in reversed(history):
+            if not isinstance(message, dict) or str(message.get("role") or "") != "user":
+                continue
+            trains = extract_entities_from_text(str(message.get("content") or "")).get("trains") or []
+            ordered = list(dict.fromkeys(str(train).strip().upper() for train in trains if str(train or "").strip()))
+            if len(ordered) >= 2:
+                return ordered[:limit]
+        return []
 
     def _resolve_date_for_turn(
         self,
@@ -1873,6 +1916,7 @@ class Router:
                     f"{catalog}\n"
                     "The latest user turn is authoritative, but you must use the recent conversation context.\n"
                     "Treat registry choose_when/avoid_when/inputSchema as binding. Do not reconstruct tool rules from general railway knowledge.\n"
+                    "For a concrete train asking its operating bureau, railway bureau, railway group, or bureau affiliation (路局/铁路局/担当局/集团归属), choose path_detail. This is a factual train-profile query, not generic railway knowledge and not an OD bureau-filter query.\n"
                     "Select a workflow manifest when the requested answer needs its declared evidence combination; never emit workflow steps as competing independent intentions.\n"
                     "Unavailable capabilities are absent from discovery and must never be invented.\n"
                     "Never import stale train/route/date anchors into a new topic. Scenery inference, sightseeing, broad knowledge, social/meta reactions and creative requests are chat unless the latest turn explicitly requests supported dynamic facts.\n"
@@ -1882,6 +1926,7 @@ class Router:
                     "If the previous assistant already contains the requested timetable/ticket/route/assignment facts and the latest user asks only for recommendation, explanation, comparison, expansion, or creative reuse, choose chat rather than repeating the tool query.\n"
                     "If the previous assistant explicitly offered a concrete supported query and the latest user confirms or urges it, continue that capability with the grounded slots from recent dialogue; do not emit generic pending.\n"
                     "For a short confirmation or urgency reply, preserve the immediately preceding validated tool task's concrete query_id/date slots when the capability is unchanged.\n"
+                    "When ActiveTopicFrame contains verified evidence for a station, train, route, or capability and the latest turn asks for its current status, update, explanation, or a natural continuation, treat it as a continuation candidate. Reuse only the frame's verified subject and capability; do not invent a new train, route, date, or direction.\n"
                     "Stations joined by 或/或者 in the same grammatical role are alternatives, never an OD pair. Reuse the known opposite endpoint from dialogue and do not manufacture a route between the alternatives.\n"
                     "A creative request remains chat even when it names a train or says to use that train as material. A data-analysis request that needs supported assignment/path evidence should query the relevant capability first and let the answer stage perform the analysis.\n"
                     "A continuation can still be a tool query. When CAPABILITY_CONTINUATION_CANDIDATE is true, decide whether the user is replacing a slot of the previous tool request, such as switching the station while keeping the station-board request. "
@@ -2255,7 +2300,8 @@ class Router:
         hard_date = str(((package.get("memory_context_package") or {}).get("hard_anchors") or {}).get("date") or "").strip()
         followup_date = str((context.get("followup_context") or {}).get("date") or "").strip()
         normalized_date = str((context.get("date_resolution") or {}).get("normalized_date") or "").strip()
-        known_dates.update(item for item in (working_date, hard_date, followup_date, normalized_date) if item)
+        active_topic_date = str(((package.get("active_topic_frame") or {}).get("scope") or {}).get("date") or "").strip()
+        known_dates.update(item for item in (working_date, hard_date, followup_date, normalized_date, active_topic_date) if item)
         return value in known_dates
 
     def _collect_fast_route_proposals(self, context: dict) -> list[dict]:
@@ -2677,6 +2723,12 @@ class Router:
         trains = list(context.get("train_numbers") or context_pool.get("trains") or [])
         if not context.get("explicit_train_numbers") and context.get("asks_contextual_assignment") and context_pool.get("trains"):
             trains = list(context_pool.get("trains") or [])
+        if not context.get("explicit_train_numbers") and context.get("asks_contextual_evidence_followup") and context_pool.get("trains"):
+            # A single hard anchor is useful for pronouns such as "它", but
+            # evidence challenges about "它们" must retain the last explicit
+            # user collection instead of silently reducing it to one anchor or
+            # to a reordered entity pool.
+            trains = self._recent_user_train_collection(context) or list(context_pool.get("trains") or [])
         date = context.get("query_date")
 
         if context.get("asks_ticket") and route:
@@ -2887,8 +2939,8 @@ class Router:
             return [self._proposal(
                 "train_terminal_expert",
                 97,
-                [self._make_query("path_detail", train_numbers[0], date=context["query_date"])],
-                "explicit train terminal/origin-destination intent",
+                [self._make_query("path_detail", train_no, date=context["query_date"]) for train_no in train_numbers[:3]],
+                "explicit train terminal/origin-destination intent preserves every named train",
             )]
 
         return [self._proposal(
@@ -3675,6 +3727,14 @@ class Router:
             "沿着哪条线",
             "是不是城际",
             "是不是高铁线",
+            "是什么路局",
+            "哪个路局",
+            "哪家路局",
+            "铁路局归属",
+            "担当路局",
+            "担当局",
+            "哪个集团",
+            "集团归属",
         )
         if any(token in compact for token in direct_tokens):
             return True
@@ -4101,6 +4161,10 @@ class Router:
             "怎么就知道",
             "哪里看出来",
             "怎么看出来",
+            "查证一下",
+            "查证",
+            "核实一下",
+            "核验一下",
         )
         if not any(token in compact for token in challenge_tokens):
             return False
@@ -5168,9 +5232,6 @@ class Router:
         )
 
     def _expert_contextual_lookup(self, context: dict) -> list[dict]:
-        if context.get("asks_chat"):
-            return []
-
         if (
             context.get("has_partial_route_query_intent")
             and context.get("station_mentions")
@@ -5198,7 +5259,27 @@ class Router:
         trains = list(context.get("train_numbers") or context_pool.get("trains") or [])
         if not context.get("explicit_train_numbers") and context.get("asks_contextual_assignment") and context_pool.get("trains"):
             trains = list(context_pool.get("trains") or [])
+        if not context.get("explicit_train_numbers") and context.get("asks_contextual_evidence_followup") and context_pool.get("trains"):
+            # A single hard anchor is useful for pronouns such as "它", but
+            # evidence challenges about "它们" must retain the last explicit
+            # user collection instead of silently reducing it to one anchor or
+            # to a reordered entity pool.
+            trains = self._recent_user_train_collection(context) or list(context_pool.get("trains") or [])
         date = context.get("query_date")
+
+        # A request to verify a prior answer is an evidence request even when
+        # its wording resembles ordinary conversation. Preserve the user-named
+        # train collection before a generic chat proposal can hide that need.
+        if context.get("asks_contextual_evidence_followup") and trains:
+            return [self._proposal(
+                "context_path_evidence_expert",
+                99,
+                [self._make_query("path_detail", train_no, date=date) for train_no in trains[:4]],
+                "contextual evidence challenge must verify the referenced train paths",
+            )]
+
+        if context.get("asks_chat"):
+            return []
 
         if context.get("asks_ticket") and route:
             tasks = [self._make_query("left_ticket_s2s", route, date=date)]
@@ -5231,14 +5312,6 @@ class Router:
                 97,
                 [self._make_query("path_stopcheck", query_id, date=date)],
                 "context expert reused prior trains for stopcheck follow-up",
-            )]
-
-        if context.get("asks_contextual_evidence_followup") and trains:
-            return [self._proposal(
-                "context_path_evidence_expert",
-                97,
-                [self._make_query("path_detail", train_no, date=date) for train_no in trains[:3]],
-                "context expert reused prior trains for evidence challenge follow-up",
             )]
 
         if (context.get("asks_train_terminal") or context.get("asks_path")) and trains:
@@ -5534,10 +5607,20 @@ class Router:
     # ========================================================
 
     def _safe_parse_tasks(self, raw: str, context: dict | None = None) -> list[dict]:
+        safe_chat_fallback = {
+            "action": "chat",
+            "params": {
+                "message": (
+                    "Continue naturally from the current conversation. Do not mention internal routing, parsing, "
+                    "prompts, tools, or errors. If the user's intent is unclear, acknowledge the immediate "
+                    "context and ask one concise, human clarification."
+                )
+            },
+        }
         try:
             data = loads_llm_json(raw)
         except Exception:
-            return [{"action": "chat", "params": {"message": "Router JSON解析失败"}}]
+            return [safe_chat_fallback]
 
         # ==========================================================
         # ✅顶层格式兼容
@@ -5549,10 +5632,10 @@ class Router:
         elif isinstance(data, dict) and "action" in data:
             tasks = [data]
         else:
-            return [{"action": "chat", "params": {"message": "Router输出格式错误"}}]
+            return [safe_chat_fallback]
 
         if not isinstance(tasks, list):
-            return [{"action": "chat", "params": {"message": "Router任务不是列表"}}]
+            return [safe_chat_fallback]
 
         expanded_tasks: list[dict] = []
         for task in tasks:

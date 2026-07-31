@@ -176,6 +176,7 @@ def query_railgo_v2_tool(
         data = list(payload["data"])[:40]
         title = f"LIVE STATION BOARD: {station} ({kind})"
         result_id = f"{station}|{kind}"
+        station_name = station_dict.name_of(station) or pieces[0]
     elif obj == "coach_layout":
         train = _normalize_train(query_id)
         coach_asset_service.fetcher = fetch_coach_pic_v2
@@ -213,6 +214,11 @@ def query_railgo_v2_tool(
             "fetched_at": operational_result["fetched_at"],
             "expires_at": operational_result["expires_at"],
             "age_seconds": operational_result["age_seconds"],
+        }
+    if obj == "station_board":
+        result["grounded_slots"] = {
+            "station": station_name,
+            "direction": kind,
         }
     if obj in {"coach_layout", "train_route_map"}:
         result["cache_status"] = asset_result.get("cache_status")
