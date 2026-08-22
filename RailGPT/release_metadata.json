@@ -1,0 +1,14 @@
+{
+  "app_name": "RailGPT",
+  "app_version": "2.6.6",
+  "release_name": "RailGPT_v2.6.6",
+  "window_title": "RailGPT v2.6.6",
+  "installer_display_name": "RailGPT",
+  "default_host": "127.0.0.1",
+  "default_port": 5033,
+  "app_user_model_id": "RailGPT.Desktop",
+  "release_icon": "RailGPT.ico",
+  "setup_icon": "setup_icon.ico",
+  "installer_output": "RailGPT_v2.6.6_Setup_x64",
+  "portable_output": "RailGPT_v2.6.6_win64"
+}

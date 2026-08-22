@@ -1,0 +1,5 @@
+# Install declared runtime requirements under the complete Python 3.12 x64
+# constraint set, then add the pinned release packager.
+-r requirements.txt
+-c requirements-lock.txt
+pyinstaller==6.19.0

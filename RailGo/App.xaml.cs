@@ -22,12 +22,15 @@ using RailGo.ViewModels.Pages.Settings.DataSources;
 using RailGo.ViewModels.Pages.Shell;
 using RailGo.ViewModels.Pages.Stations;
 using RailGo.ViewModels.Pages.StationToStation;
+using RailGo.AI.Services;
+using RailGo.ViewModels.Pages.Chat;
 using RailGo.ViewModels.Pages.TrainEmus;
 using RailGo.ViewModels.Pages.Trains;
 using RailGo.ViewModels.Windows;
 using RailGo.Views;
 using RailGo.Views.Windows;
 using RailGo.Views.ContentDialogs;
+using RailGo.Views.Pages.Chat;
 using RailGo.Views.Pages.Settings;
 using RailGo.Views.Pages.Settings.DataSources;
 using RailGo.Views.Pages.Shell;
@@ -142,6 +145,18 @@ public partial class App : Application
             services.AddTransient<DataSources_ThirdPartyApiServicesPage>();
             services.AddTransient<DataSources_ThirdPartyDatabasesPage>();
 
+            // AI Services (RailGPT integration)
+            services.AddSingleton<HttpClient>();
+            services.AddSingleton<IRailGoBridgeHost, RailGoBridgeServer>();
+            services.AddSingleton<IRailGptDiagnostics, RailGptDiagnostics>();
+            services.AddSingleton<IRailGptRuntimeManager, RailGptRuntimeManager>();
+            services.AddSingleton<IRailGptStartupCoordinator, RailGptStartupCoordinator>();
+            services.AddSingleton<IRailGptConversationIndexReader, RailGptConversationIndexReader>();
+            services.AddSingleton<IAIChatClient, AIChatClient>();
+            services.AddSingleton<AISettingsService>();
+            services.AddTransient<ChatViewModel>();
+            services.AddTransient<ChatPage>();
+
             // Configuration
             services.Configure<LocalSettingsOptions>(context.Configuration.GetSection(nameof(LocalSettingsOptions)));
         }).
@@ -152,21 +167,13 @@ public partial class App : Application
         UnhandledException += App_UnhandledException;
     }
 
-    private async void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    private void App_UnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
-        e.Handled = true; 
-
+        App.GetService<IRailGptDiagnostics>().Error("Unhandled WinUI exception.", e.Exception);
         System.Diagnostics.Debug.WriteLine($"未处理异常: {e.Exception}");
-
-        await MainWindow.DispatcherQueue.EnqueueAsync(async () =>
-        {
-            var exceptionDialog = new ExceptionDialog(e.Exception)
-            {
-                XamlRoot = MainWindow.Content.XamlRoot
-            };
-
-            await exceptionDialog.ShowAsync();
-        });
+        // Unknown UI exceptions are not marked handled. Swallowing them can
+        // leave the visual tree alive in a corrupted white-screen state.
+        e.Handled = false;
     }
 
     public static class Global
@@ -181,6 +188,7 @@ public partial class App : Application
         DataSourcesShell.CheckAvailableModes();
 
         base.OnLaunched(args);
+
         // App.GetService<IAppNotificationService>().Show(string.Format("AppNotificationSamplePayload".GetLocalized(), AppContext.BaseDirectory));
         await App.GetService<IActivationService>().ActivateAsync(args);
     }

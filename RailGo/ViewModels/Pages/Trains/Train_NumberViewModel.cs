@@ -7,12 +7,13 @@ using Microsoft.UI.Xaml.Controls;
 using Newtonsoft.Json;
 using RailGo.Core.Models;
 using RailGo.Core.Models.QueryDatas;
+using RailGo.Contracts.ViewModels;
 using RailGo.Services;
 using RailGo.ViewModels.Pages.Shell;
 
 namespace RailGo.ViewModels.Pages.Trains;
 
-public partial class Train_NumberViewModel : ObservableRecipient
+public partial class Train_NumberViewModel : ObservableRecipient, INavigationAware
 {
     public Train_NumberViewModel()
     {
@@ -40,6 +41,19 @@ public partial class Train_NumberViewModel : ObservableRecipient
             WaitCloseInfoBar();
         }
         progressBarVM.TaskIsInProgress = "Collapsed";
+    }
+
+    public void OnNavigatedTo(object parameter)
+    {
+        if (parameter is string trainNumber && !string.IsNullOrWhiteSpace(trainNumber))
+        {
+            InputTrainTrips = trainNumber.Trim().ToUpperInvariant();
+            _ = GettrainNumberTripsInfosContent();
+        }
+    }
+
+    public void OnNavigatedFrom()
+    {
     }
     private async void WaitCloseInfoBar()
     {

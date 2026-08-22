@@ -1,0 +1,152 @@
+name: RailGPT x64 PR artifact
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/railgpt-pr.yml'
+      - '.github/workflows/build.yml'
+      - 'Directory.Build.props'
+      - 'RailGo.sln'
+      - 'RailGo/**'
+      - 'RailGo.AI/**'
+      - 'RailGo.Core/**'
+      - 'RailGPT/**'
+      - 'installer/**'
+      - 'packaging/**'
+      - 'scripts/**'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  x64-unpackaged:
+    runs-on: windows-2022
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup MSBuild.exe
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install Python 3.12 x64
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+          cache: 'pip'
+          cache-dependency-path: |
+            RailGPT/requirements-lock.txt
+
+      - name: Build RailGPT Runtime
+        shell: pwsh
+        run: |
+          python -m pip install pip==26.1.2
+          python -m pip install -r RailGPT/requirements-dev.txt
+          Push-Location RailGPT
+          try {
+            python -m unittest discover -s . -p "test*.py"
+          }
+          finally {
+            Pop-Location
+          }
+          ./packaging/build-railgpt-runtime.ps1 -Python python
+
+      - name: Verify Runtime without Python on PATH
+        shell: pwsh
+        run: |
+          $env:Path = (($env:Path -split ';') |
+            Where-Object { $_ -notmatch '(?i)python|conda' }) -join ';'
+          ./packaging/test-railgpt-runtime.ps1
+
+      - name: Restore and publish self-contained x64 app
+        shell: pwsh
+        run: |
+          dotnet restore RailGo/RailGo.csproj -r win-x64 -p:Platform=x64
+          dotnet publish RailGo/RailGo.csproj `
+            -c Release `
+            -r win-x64 `
+            -p:Platform=x64 `
+            -p:WindowsPackageType=None `
+            -p:WindowsAppSDKSelfContained=true `
+            -p:PublishSingleFile=false `
+            -p:PublishTrimmed=false `
+            --self-contained true `
+            --no-restore `
+            -o artifacts/publish/win-x64
+
+      - name: Validate packaged Runtime and create ZIP
+        shell: pwsh
+        run: |
+          $runtime = "artifacts/publish/win-x64/RailGPT/RailGPT.Runtime.exe"
+          if (-not (Test-Path $runtime)) {
+            throw "RailGPT.Runtime.exe is missing from the x64 publish output."
+          }
+          ./packaging/test-railgpt-runtime.ps1 -RuntimePath $runtime
+          Compress-Archive `
+            -Path "artifacts/publish/win-x64/*" `
+            -DestinationPath "artifacts/RailGo-RailGPT-win-x64.zip" `
+            -CompressionLevel Optimal
+
+      - name: Build and validate unsigned x64 MSIX
+        id: msix
+        shell: pwsh
+        run: |
+          [xml]$versionProps = Get-Content "Directory.Build.props"
+          $version = $versionProps.SelectSingleNode(
+            "//RailGoVersion").InnerText.Trim()
+          $packageDir = "$env:GITHUB_WORKSPACE\artifacts\msix\"
+          msbuild RailGo.sln `
+            /t:Restore `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:RailGoVersion=$version
+          if ($LASTEXITCODE -ne 0) {
+            throw "MSIX restore failed."
+          }
+          msbuild RailGo.sln `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:RailGoVersion=$version `
+            /p:AppxPackageVersion=$version `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxBundle=Never `
+            /p:AppxPackageDir="$packageDir" `
+            /p:GenerateAppxPackageOnBuild=true `
+            /p:AppxPackageSigningEnabled=false
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unsigned x64 MSIX build failed."
+          }
+          $msix = Get-ChildItem -Path $packageDir -Recurse -Filter *.msix |
+            Where-Object {
+              $_.Name -like "RailGo_*_x64.msix" -and
+              $_.FullName -notmatch "[\\/]Dependencies[\\/]"
+            } |
+            Select-Object -First 1
+          if (-not $msix) {
+            throw "The unsigned x64 MSIX was not produced."
+          }
+          ./packaging/test-railgo-msix.ps1 `
+            -MsixPath $msix.FullName `
+            -ExpectedVersion $version
+
+      - name: Upload x64 unpackaged ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: RailGo-RailGPT-win-x64
+          path: artifacts/RailGo-RailGPT-win-x64.zip
+          if-no-files-found: error
+
+      - name: Upload unsigned x64 MSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: RailGo-RailGPT-x64-unsigned-msix
+          path: artifacts/msix/**/*.msix
+          if-no-files-found: error

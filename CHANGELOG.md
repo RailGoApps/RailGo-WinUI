@@ -31,3 +31,15 @@ _0.1.3.0版本更新_
 > 本软件为免费使用，如果是付费的那就是被骗了，盗版举报请发送邮件至report@railgo.dev
 
 ![RailGo](https://github.com/user-attachments/assets/d2c3fb36-a097-46fb-826a-36766a610dc8)
+## Windows版本0.1.4.0_Release更新内容
+
+_0.1.4.0版本更新_
+
+### 🚄 RailGPT整合稳定性
+
+- RailGPT随RailGo自包含发布，产品版本号统一更新至0.1.4.0
+- 修复Runtime冷启动、自动恢复与应用关闭时序
+- 修复WebView2初始化超时、页面卸载后的异步更新和历史会话刷新竞态
+- 增加无Python环境下的x64运行验证
+
+---

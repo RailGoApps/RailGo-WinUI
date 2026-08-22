@@ -1,0 +1,72 @@
+<Page
+    x:Class="RailGo.Views.Pages.Chat.ChatPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid
+            x:Name="WebViewHost"
+            Visibility="Collapsed" />
+
+        <Grid
+            x:Name="NativeStatusPanel"
+            Padding="32"
+            Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+            <StackPanel
+                MaxWidth="620"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="14">
+                <ProgressRing
+                    x:Name="StatusProgress"
+                    Width="42"
+                    Height="42"
+                    HorizontalAlignment="Center"
+                    IsActive="True" />
+                <FontIcon
+                    x:Name="StatusIcon"
+                    HorizontalAlignment="Center"
+                    FontSize="36"
+                    Glyph="&#xE946;"
+                    Visibility="Collapsed" />
+                <TextBlock
+                    Text="RailGPT"
+                    HorizontalAlignment="Center"
+                    FontSize="28"
+                    FontWeight="SemiBold" />
+                <TextBlock
+                    x:Name="StatusMessage"
+                    Text="正在后台启动 RailGPT…"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock
+                    x:Name="StatusDetails"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap"
+                    FontFamily="Consolas"
+                    FontSize="12"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <Button
+                        x:Name="RetryButton"
+                        Content="重试"
+                        Click="OnRetryClick"
+                        Visibility="Collapsed" />
+                    <Button
+                        x:Name="InstallWebViewButton"
+                        Content="安装 WebView2"
+                        Click="OnInstallWebViewClick"
+                        Visibility="Collapsed" />
+                    <Button
+                        x:Name="OpenLogsButton"
+                        Content="打开日志"
+                        Click="OnOpenLogsClick" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>

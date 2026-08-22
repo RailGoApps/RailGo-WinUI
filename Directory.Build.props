@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <RailGoVersion Condition="'$(RailGoVersion)' == ''">0.1.4.0</RailGoVersion>
+    <Version>$(RailGoVersion)</Version>
+    <AssemblyVersion>$(RailGoVersion)</AssemblyVersion>
+    <FileVersion>$(RailGoVersion)</FileVersion>
+  </PropertyGroup>
+</Project>
