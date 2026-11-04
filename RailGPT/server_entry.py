@@ -85,6 +85,8 @@ def main() -> int:
 
     # Importing app_init after sys.path is prepared is important for both the
     # source checkout and the PyInstaller bundle.
+    from app_runtime import prepare_runtime
+    prepare_runtime()
     from app_init import build_backend
     from werkzeug.serving import run_simple
 

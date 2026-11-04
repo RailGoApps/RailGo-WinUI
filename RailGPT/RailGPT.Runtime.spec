@@ -20,7 +20,7 @@ datas = collect_data_files("tzdata")
 for directory in ("templates", "static", "assets", "knowledge", "prompts", "tools"):
     if (root / directory).exists():
         datas.extend(data_tree(directory))
-for filename in ("release_metadata.json", "README.md", "README_EN.md", "RailGPT.ico"):
+for filename in ("release_metadata.json", "README.md", "README_EN.md", "RailGPT.ico", "releaseico.ico", "setup_icon.ico"):
     path = root / filename
     if path.exists():
         datas.append((str(path), "."))

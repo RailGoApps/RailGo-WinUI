@@ -5,14 +5,15 @@ import threading
 import time
 from requests.adapters import HTTPAdapter
 from tools.rail.client_identity import get_installation_id
+from app_runtime import APP_VERSION
 
 
 DEFAULT_HEADERS = {
-    "User-Agent": "RailGPT/2.6.6 (+https://github.com/EasonWheng/RailGPT)",
+    "User-Agent": f"RailGPT/{APP_VERSION} (+https://github.com/EasonWheng/RailGPT)",
     "Accept": "application/json",
     "Accept-Encoding": "gzip, deflate",
     "X-Client-Name": "RailGPT",
-    "X-Client-Version": "2.6.6",
+    "X-Client-Version": APP_VERSION,
     "X-Client-Info": "Open-source railway analysis agent; low-frequency educational use",
     "X-Project": "RailGPT",
     "X-Contact": "https://github.com/EasonWheng/RailGPT/issues",

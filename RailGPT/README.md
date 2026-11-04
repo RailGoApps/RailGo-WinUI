@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/EasonWheng/RailGPT/releases/tag/v2.6.6">
-    <img src="https://img.shields.io/badge/download-v2.6.6-2563eb?style=for-the-badge&logo=github" alt="Download RailGPT v2.6.6" />
+  <a href="https://github.com/EasonWheng/RailGPT/releases/tag/v3.0.0">
+    <img src="https://img.shields.io/badge/download-v3.0.0-2563eb?style=for-the-badge&logo=github" alt="Download RailGPT v3.0.0" />
   </a>
   <a href="https://github.com/EasonWheng/RailGPT/releases">
     <img src="https://img.shields.io/github/v/release/EasonWheng/RailGPT?display_name=tag&style=for-the-badge" alt="Latest release" />
@@ -18,7 +18,7 @@
     <img src="https://img.shields.io/github/license/EasonWheng/RailGPT?style=for-the-badge" alt="MIT License" />
   </a>
   <img src="https://img.shields.io/badge/platform-Windows%20x64-0f6cbd?style=for-the-badge&logo=windows11" alt="Windows x64" />
-  <img src="https://img.shields.io/badge/status-v3%20preview-f59e0b?style=for-the-badge" alt="v3 preview" />
+  <img src="https://img.shields.io/badge/status-v3.0.0-16a34a?style=for-the-badge" alt="RailGPT v3.0.0" />
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
   <strong>简体中文</strong> ·
   <a href="./README_EN.md">English Documentation</a> ·
   <a href="#english-overview">English Overview</a> ·
-  <a href="https://github.com/EasonWheng/RailGPT/releases/tag/v2.6.6">下载安装包 / Download</a> ·
+  <a href="https://github.com/EasonWheng/RailGPT/releases/tag/v3.0.0">下载安装包 / Download</a> ·
   <a href="https://github.com/EasonWheng/RailGPT/issues">Issues</a>
 </p>
 
@@ -46,7 +46,7 @@ RailGPT 不是一个只靠大模型先验知识“猜火车”的聊天机器人
 > RailGPT 是信息咨询与铁路分析工具。项目现在和未来都不会提供自动抢票、刷票、绕过 12306 风控、批量爬取或其他违规购票功能。
 
 > [!NOTE]
-> 当前可下载的桌面发行版仍为 **v2.6.6**。`main` 分支中的 Router、Context、Memory 和 Tool Contract 已完成大规模升级，处于 **v3 preview / release candidate** 阶段。这里的“v3 preview”描述 Agent 架构代际，不代表已经发布了 `v3.0.0` 安装包。
+> 当前桌面正式发行版为 **v3.0.0**。它保留 v2 的可观测执行地基，并正式发布经过升级的 Router、Context、Memory、Tool Contract 与多服务商模型设置能力。
 
 ## 目录
 
@@ -75,13 +75,13 @@ RailGPT 不是一个只靠大模型先验知识“猜火车”的聊天机器人
 
 | 项目 | 当前状态 |
 | --- | --- |
-| 桌面发行版本 | `v2.6.6` |
-| 主分支架构状态 | `v3 preview / RC` |
+| 桌面发行版本 | `v3.0.0` |
+| 主分支架构状态 | `v3.0.0` 正式版 |
 | 主要运行平台 | Windows 10/11 x64 |
 | 桌面技术栈 | Flask + HTML/CSS/JavaScript + pywebview |
 | 桌面回退 | pywebview 启动失败时自动打开系统浏览器 |
 | 默认地址 | `127.0.0.1:5033`，端口冲突时自动寻找空闲端口 |
-| LLM 服务 | DeepSeek，OpenAI-compatible 请求格式 |
+| LLM 服务 | DeepSeek、OpenAI 与任意 OpenAI-compatible 服务 |
 | Agent 模式 | `FAST-GO`、`FAST-PLUS`、`DEEP` |
 | 数据存储 | SQLite + JSON/JSONL + 本地文件 |
 | API Key 存储 | Windows DPAPI，加密后保存在当前用户 AppData |
@@ -572,11 +572,11 @@ installation UUID 不包含账号、API Key、会话 ID、用户问题、主机�
 
 | 模式 | 模型 | Thinking | 适用场景 |
 | --- | --- | --- | --- |
-| `FAST-GO` | `deepseek-v4-flash` | disabled | 明确、直接、低延迟查询 |
-| `FAST-PLUS` | `deepseek-v4-flash` | enabled | 多轮追问、复杂日期、混合意图 |
-| `DEEP` | `deepseek-v4-pro` | enabled | 重型分析、保守推理、复杂综合问题 |
+| `FAST-GO` | `deepseek-flash` | disabled | 明确、直接、低延迟查询 |
+| `FAST-PLUS` | `deepseek-flash` | enabled | 多轮追问、复杂日期、混合意图 |
+| `DEEP` | `deepseek-flash` | enabled | 重型分析、保守推理、复杂综合问题 |
 
-DeepSeek 使用 OpenAI-compatible `/chat/completions`。Thinking 模式通过：
+默认模型映射以 DeepSeek 为例；用户可在 Settings 中为每个模式独立换成 OpenAI 或兼容服务商可用的任意模型 ID。DeepSeek 使用 OpenAI-compatible `/chat/completions`，Thinking 模式通过：
 
 ```python
 reasoning_effort="high"
@@ -587,12 +587,17 @@ extra_body={"thinking": {"type": "enabled"}}
 
 ### 主 Key 与 Thinker Key
 
-Settings 可分别配置：
+Settings 可配置：
 
+- 服务商：DeepSeek、OpenAI（ChatGPT）或自定义 OpenAI-compatible；
 - 主对话 API Key：Router、AnswerGenerator 等主要请求；
-- Thinker API Key：Thinking 与高阶辅助链。
+- Thinker API Key：Thinking 与高阶辅助链；
+- `FAST-GO`、`FAST-PLUS`、`DEEP` 三个独立模型槽；
+- 自定义兼容服务的 HTTPS Base URL（本地兼容开发服务允许 loopback HTTP）。
 
 Thinker Key 未填写时回退复用主 Key。设置修改后 LLMClient 按 settings version 懒刷新，无需重启。
+
+DeepSeek 保留其 `thinking` 扩展参数；OpenAI 使用兼容的推理强度参数；通用兼容服务只接收保守的 Chat Completions 字段。模型是否可用由用户账户与服务商决定，RailGPT 不依赖不稳定的模型列表枚举接口。
 
 ## Fast 模式事实压缩
 
@@ -630,7 +635,7 @@ Flask backend + HTML/CSS/JavaScript frontend + pywebview desktop shell
 - 浏览器 HTTP 下载回退；
 - 白天、夜间、高对比和彩色主题；
 - 顶部 RailGo、rail.re、12306 数据服务栏；
-- Settings 中的 Account 预留、API 管理和 About；
+- Settings 中的 Account 预留、多服务商 API 管理、逐模式模型配置和 About；
 - 无 API Key 时仍可启动、查看历史和导出。
 
 ### 本地 HTTP API
@@ -682,16 +687,17 @@ Provider URL、endpoint、source JSON 和媒体 locator 保存于结构化 prove
 
 前往：
 
-**[RailGPT v2.6.6 Release](https://github.com/EasonWheng/RailGPT/releases/tag/v2.6.6)**
+**[RailGPT v3.0.0 Release](https://github.com/EasonWheng/RailGPT/releases/tag/v3.0.0)**
 
 普通用户建议安装 Setup；portable 压缩包适合免安装试用。首次启动：
 
 1. 打开 `Settings`。
 2. 进入 `API`。
-3. 选择 DeepSeek。
-4. 填写主 API Key。
-5. 可选填写 Thinker API Key。
-6. 返回主界面开始对话。
+3. 选择 DeepSeek、OpenAI 或自定义 OpenAI-compatible 服务。
+4. 填写主 API Key，并按需要填写 Thinker API Key。
+5. 在模型配置卡片中确认三个运行模式的模型 ID。
+6. 自定义服务商额外填写 Base URL。
+7. 返回主界面开始对话。
 
 一台电脑保存的 Key 不会进入安装包，也不会自动出现在另一台电脑。
 
@@ -858,14 +864,14 @@ RailGPT/
 
 - 当前是本地单用户应用，不提供账号、云同步或多租户隔离。
 - DPAPI 使完整桌面体验主要面向 Windows。
-- DeepSeek 是当前唯一启用 provider，暂未开放自定义 URL。
+- 自定义 OpenAI-compatible 服务的协议差异由其服务商负责；RailGPT 默认只发送保守的 Chat Completions 字段。
 - 外部数据服务的可用性、覆盖范围和更新时间不由 RailGPT 控制。
 - 动车组历史担当不等于当天最终调度命令。
 - 实时晚点只支持当前状态，不支持历史或未来晚点。
 - `coach_layout` 和 `train_route_map` 代码资产仍在仓库，但 capability 当前为 disabled。
 - `ui/` 是历史 Qt 残留，不代表当前依赖。
 - 长文本、极端口语、跨主题多轮和罕见专业术语仍需持续回归。
-- v3 preview 需要更多真实对话验证后再发布正式 `v3.0.0`。
+- 模型选择不会绕过 RailGPT 的工具合同、事实门禁或外部 API 保护策略。
 
 ### 不承诺的能力
 
@@ -887,7 +893,7 @@ RailGPT/
 - PSW 状态机；
 - LLM 只基于 facts 推理。
 
-### v2.6.6：当前桌面发行版
+### v2.6.6：上一代桌面发行版
 
 - Flask + pywebview 本地桌面；
 - Web UI 与 SSE；
@@ -896,7 +902,7 @@ RailGPT/
 - Windows installer/portable；
 - 基础上下文和 Memory。
 
-### v3 preview：当前 main
+### v3.0.0：当前正式发行版
 
 - MCP 风格能力注册表；
 - Semantic Router Council；
@@ -908,6 +914,9 @@ RailGPT/
 - Memory OS 与重要性积分；
 - RailGo v1/v2 兼容和运营缓存；
 - 真实历史会话回放。
+- DeepSeek、OpenAI 与任意 OpenAI-compatible 服务商；
+- 三模式独立模型配置与 Windows DPAPI 本地密钥保护；
+- Windows 便携版、安装器和 GitHub Actions 发布链路。
 
 ### 后续方向
 
@@ -965,7 +974,7 @@ RailGPT 严格限制外部 API 调用频率，优先复用本地数据库，并�
 
 RailGPT is a Windows-first, local railway AI application for real-world Chinese railway questions. It combines a multi-agent semantic router, an MCP-style capability registry, structured railway tools, evidence validation, context-aware dialogue, layered memory, local SQLite caches, SSE streaming and a pywebview desktop shell.
 
-The downloadable desktop release is **v2.6.6**. The current `main` branch contains a **v3 preview** of the Agent architecture. The preview label refers to routing, context, memory and evidence systems; it is not yet a published `v3.0.0` installer.
+The downloadable desktop release is **v3.0.0**. It includes the production Router, Context, Memory, evidence, multi-provider model settings, and Windows delivery stack described above.
 
 ### Core principles
 
@@ -1013,9 +1022,9 @@ User
 
 | Mode | Model | Thinking | Context budget |
 | --- | --- | --- | --- |
-| FAST-GO | `deepseek-v4-flash` | disabled | 8 messages / 6,000 chars |
-| FAST-PLUS | `deepseek-v4-flash` | enabled | 24 messages / 12,000 chars |
-| DEEP | `deepseek-v4-pro` | enabled | 80 messages / 24,000 chars |
+| FAST-GO | `deepseek-flash` | disabled | 8 messages / 6,000 chars |
+| FAST-PLUS | `deepseek-flash` | enabled | 24 messages / 12,000 chars |
+| DEEP | `deepseek-flash` | enabled | 80 messages / 24,000 chars |
 
 ### Data and caching
 

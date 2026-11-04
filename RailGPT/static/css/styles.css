@@ -866,6 +866,59 @@ mark.search-hl {
   flex-wrap: wrap;
 }
 
+.settings-model-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-model-row {
+  display: grid;
+  grid-template-columns: minmax(116px, 0.9fr) minmax(150px, 1fr) minmax(160px, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--bg-panel);
+}
+
+.settings-model-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-model-row strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  letter-spacing: .04em;
+}
+
+.settings-model-row span {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.settings-model-preset {
+  width: 100%;
+  min-width: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  padding: 9px 10px;
+  background: var(--bg-panel-alt);
+  color: var(--text-primary);
+}
+
+.settings-model-input {
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+@media (max-width: 760px) {
+  .settings-model-row { grid-template-columns: 1fr; }
+}
+
 .settings-path {
   display: block;
   white-space: pre-wrap;

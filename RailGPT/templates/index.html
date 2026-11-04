@@ -7,10 +7,10 @@
   <link rel="icon" type="image/x-icon" href="{{ favicon_url }}" />
   <link rel="stylesheet" href="/static/css/styles.css" />
   <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/static/vendor/marked/marked.umd.js"></script>
   <link rel="stylesheet" id="hljs-theme"
-        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+        href="/static/vendor/highlight/styles/github.min.css" />
+  <script src="/static/vendor/highlight/highlight.min.js"></script>
 </head>
 <body class="{% if embedded %}embedded{% endif %}">
   <!-- Window frame — provides rounded corners + border ring for pywebview frameless mode -->
@@ -456,7 +456,39 @@
                 <div id="settings-provider-dropdown" class="theme-dropdown settings-provider-dropdown"></div>
               </div>
               <input id="settings-provider-select" type="hidden" value="deepseek"/>
-              <p class="settings-muted">首版仅开放固定预设 provider，不开放自定义 Base URL。</p>
+              <p class="settings-muted">DeepSeek 与 OpenAI 使用官方端点；兼容服务可配置 HTTPS Base URL，本地回环开发服务可使用 HTTP。</p>
+            </div>
+
+            <div id="settings-custom-endpoint-card" class="settings-card hidden">
+              <h4>兼容服务端点</h4>
+              <label class="settings-field-label" for="settings-custom-base-url">OpenAI-compatible Base URL</label>
+              <input id="settings-custom-base-url" class="settings-input" type="url" placeholder="https://api.example.com/v1" autocomplete="url" spellcheck="false"/>
+              <p class="settings-muted">RailGPT 只保存端点地址；API Key 仍由 Windows DPAPI 加密保护。</p>
+            </div>
+
+            <div class="settings-card">
+              <h4>模型配置</h4>
+              <p class="settings-muted">三个 Agent 模式独立选模型。可从推荐清单选择，或直接输入服务商支持的任意模型 ID。</p>
+              <div class="settings-model-grid">
+                <div class="settings-model-row">
+                  <div><strong>FAST-GO</strong><span>速度优先，不启用思考</span></div>
+                  <select id="settings-model-fast-go-preset" class="settings-model-preset"></select>
+                  <input id="settings-model-fast-go" class="settings-input settings-model-input" type="text" placeholder="模型 ID" autocomplete="off" spellcheck="false"/>
+                </div>
+                <div class="settings-model-row">
+                  <div><strong>FAST-PLUS</strong><span>平衡质量与延迟</span></div>
+                  <select id="settings-model-fast-plus-preset" class="settings-model-preset"></select>
+                  <input id="settings-model-fast-plus" class="settings-input settings-model-input" type="text" placeholder="模型 ID" autocomplete="off" spellcheck="false"/>
+                </div>
+                <div class="settings-model-row">
+                  <div><strong>DEEP</strong><span>复杂推理与长上下文</span></div>
+                  <select id="settings-model-deep-preset" class="settings-model-preset"></select>
+                  <input id="settings-model-deep" class="settings-input settings-model-input" type="text" placeholder="模型 ID" autocomplete="off" spellcheck="false"/>
+                </div>
+              </div>
+              <div class="settings-actions">
+                <button id="settings-save-models" class="btn-primary-sm">保存模型配置</button>
+              </div>
             </div>
 
             <div class="settings-card">

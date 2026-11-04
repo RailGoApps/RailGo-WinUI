@@ -75,7 +75,7 @@ class RailGoClientTest(unittest.TestCase):
 
     def test_railgo_headers_identify_railgpt_without_user_secrets(self):
         self.assertEqual(RAILGO_HEADERS["X-Client-Name"], "RailGPT")
-        self.assertEqual(RAILGO_HEADERS["X-Client-Version"], "2.6.6")
+        self.assertEqual(RAILGO_HEADERS["X-Client-Version"], "3.0.0")
         self.assertRegex(RAILGO_HEADERS["X-RailGPT-Installation-ID"], r"^[0-9a-f-]{36}$")
         self.assertNotIn("api", " ".join(RAILGO_HEADERS.values()).lower().replace("railgpt", ""))
 

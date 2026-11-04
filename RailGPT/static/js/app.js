@@ -143,6 +143,8 @@ function applySettingsPayload(payload) {
         btn.addEventListener("click", () => selectSettingsProvider(btn.dataset.providerId));
       });
     }
+
+    renderModelConfiguration(payload, currentProviderId, false);
   }
 
   $("#settings-primary-key-status").textContent = payload?.has_primary_api_key
@@ -237,7 +239,74 @@ function selectSettingsProvider(providerId) {
   $$(".settings-provider-option").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.providerId === selected.id);
   });
+  renderModelConfiguration(state.settings || {}, selected.id, selected.id !== state.settings?.provider);
   closeSettingsProviderDropdown();
+}
+
+function getSettingsProvider(providerId) {
+  return (state.settings?.providers || []).find(provider => provider.id === providerId) || null;
+}
+
+function renderModelConfiguration(payload, providerId, useDefaults) {
+  const provider = getSettingsProvider(providerId);
+  if (!provider) return;
+  const customCard = $("#settings-custom-endpoint-card");
+  customCard?.classList.toggle("hidden", !provider.supports_custom_base_url);
+  if (provider.supports_custom_base_url) {
+    $("#settings-custom-base-url").value = useDefaults ? "" : (payload?.custom_base_url || "");
+  }
+  const sourceModels = useDefaults ? (provider.default_models || {}) : (payload?.models || provider.default_models || {});
+  ["fast-go", "fast-plus", "deep"].forEach(mode => {
+    const suffix = mode;
+    const preset = $(`#settings-model-${suffix}-preset`);
+    const input = $(`#settings-model-${suffix}`);
+    if (!preset || !input) return;
+    const selectedModel = String(sourceModels[mode] || "");
+    const options = [...new Set([...(provider.model_options || []), selectedModel].filter(Boolean))];
+    preset.innerHTML = [
+      '<option value="">选择推荐模型…</option>',
+      ...options.map(model => `<option value="${escapeHtml(model)}">${escapeHtml(model)}</option>`),
+      '<option value="__custom__">自定义模型 ID…</option>',
+    ].join("");
+    preset.value = options.includes(selectedModel) ? selectedModel : "__custom__";
+    input.value = selectedModel;
+    preset.onchange = () => {
+      if (preset.value && preset.value !== "__custom__") input.value = preset.value;
+      if (preset.value === "__custom__") input.focus();
+    };
+  });
+}
+
+function readSettingsModels() {
+  const models = {};
+  ["fast-go", "fast-plus", "deep"].forEach(mode => {
+    models[mode] = String($(`#settings-model-${mode}`)?.value || "").trim();
+  });
+  return models;
+}
+
+async function saveModelConfiguration() {
+  const provider = $("#settings-provider-select").value || "deepseek";
+  const models = readSettingsModels();
+  if (Object.values(models).some(value => !value)) {
+    setSettingsFeedback("请为 FAST-GO、FAST-PLUS 和 DEEP 分别填写模型 ID。", true);
+    return;
+  }
+  const selected = getSettingsProvider(provider);
+  const body = { provider, models };
+  if (selected?.supports_custom_base_url) body.custom_base_url = $("#settings-custom-base-url").value.trim();
+  setSettingsFeedback("保存模型配置…");
+  try {
+    const payload = await apiPut("/api/settings/api", body);
+    if (payload.error) {
+      setSettingsFeedback(payload.error, true);
+      return;
+    }
+    applySettingsPayload(payload);
+    setSettingsFeedback("模型配置已更新，后续请求会立即使用新模型。");
+  } catch (_) {
+    setSettingsFeedback("模型配置保存失败，请稍后重试。", true);
+  }
 }
 
 async function loadAboutContent() {
@@ -272,7 +341,9 @@ async function saveApiKey(slot) {
   }
 
   setSettingsFeedback("保存中…");
-  const body = { provider };
+  const body = { provider, models: readSettingsModels() };
+  const selected = getSettingsProvider(provider);
+  if (selected?.supports_custom_base_url) body.custom_base_url = $("#settings-custom-base-url").value.trim();
   if (slot === "thinking") body.thinking_api_key = value;
   else body.primary_api_key = value;
 
@@ -964,10 +1035,10 @@ const THEME_LABELS = {
 
 // highlight.js CSS per theme
 const HLJS_THEMES = {
-  light:           "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css",
-  dark:            "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css",
-  "high-contrast": "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css",
-  colorful:        "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css",
+  light:           "/static/vendor/highlight/styles/github.min.css",
+  dark:            "/static/vendor/highlight/styles/github-dark.min.css",
+  "high-contrast": "/static/vendor/highlight/styles/github-dark-dimmed.min.css",
+  colorful:        "/static/vendor/highlight/styles/atom-one-dark.min.css",
 };
 
 function setTheme(theme) {
@@ -1673,6 +1744,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("#settings-save-primary").addEventListener("click", () => saveApiKey("primary"));
   $("#settings-delete-primary").addEventListener("click", () => deleteApiKey("primary"));
   $("#settings-save-thinking").addEventListener("click", () => saveApiKey("thinking"));
+  $("#settings-save-models").addEventListener("click", saveModelConfiguration);
   $("#settings-delete-thinking").addEventListener("click", () => deleteApiKey("thinking"));
   $("#api-lock-open-settings").addEventListener("click", () => openSettingsDialog("api"));
   $("#settings-provider-btn").addEventListener("click", e => {

@@ -97,15 +97,26 @@ class LLMClient:
         return self.client
 
     def _thinking_request_kwargs(self) -> dict:
-        if self.mode in {"fast-plus", "deep"}:
-            return {
-                "reasoning_effort": DEEP_REASONING_EFFORT,
-                "extra_body": {"thinking": {"type": "enabled"}},
-            }
-
-        return {
-            "extra_body": {"thinking": {"type": "disabled"}},
-        }
+        """Use provider-specific thinking fields without breaking generic APIs."""
+        bundle = self.settings.resolve_llm_config(
+            required=False,
+            slot=self.credential_slot,
+            allow_fallback=True,
+        )
+        strategy = str(bundle.get("thinking_strategy") or "generic")
+        wants_reasoning = self.mode in {"fast-plus", "deep"}
+        if strategy == "deepseek":
+            if wants_reasoning:
+                return {
+                    "reasoning_effort": DEEP_REASONING_EFFORT,
+                    "extra_body": {"thinking": {"type": "enabled"}},
+                }
+            return {"extra_body": {"thinking": {"type": "disabled"}}}
+        if strategy == "openai" and wants_reasoning:
+            return {"reasoning_effort": DEEP_REASONING_EFFORT}
+        # OpenAI-compatible services vary widely. Model IDs remain open, so
+        # pass only the portable Chat Completions fields by default.
+        return {}
 
     def generate(
         self,

@@ -28,7 +28,7 @@ def metadata_value(key: str, default=None):
 
 
 APP_NAME = metadata_value("app_name", "RailGPT")
-APP_VERSION = metadata_value("app_version", "2.6.6")
+APP_VERSION = metadata_value("app_version", "3.0.0")
 RELEASE_NAME = metadata_value("release_name", f"{APP_NAME}_v{APP_VERSION}")
 WINDOW_TITLE = metadata_value("window_title", f"{APP_NAME} v{APP_VERSION}")
 INSTALLER_DISPLAY_NAME = metadata_value("installer_display_name", APP_NAME)

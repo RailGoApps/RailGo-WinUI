@@ -7,7 +7,7 @@
 <p align="center">
   <a href="./README.md">简体中文</a> ·
   <strong>English</strong> ·
-  <a href="https://github.com/EasonWheng/RailGPT/releases/tag/v2.6.6">Download v2.6.6</a> ·
+  <a href="https://github.com/EasonWheng/RailGPT/releases/tag/v3.0.0">Download v3.0.0</a> ·
   <a href="https://github.com/EasonWheng/RailGPT/issues">Issues</a>
 </p>
 
@@ -25,7 +25,7 @@ Questions about railway principles, history, culture, travel ideas, creative wri
 > RailGPT is an information and railway-analysis application. It does not provide automatic ticket purchasing, ticket sniping, repeated ticket polling, risk-control bypasses, bulk scraping, or other abusive ticketing behavior.
 
 > [!NOTE]
-> The latest downloadable desktop release is **v2.6.6**. The `main` branch contains a substantially upgraded **v3 preview / release-candidate Agent core**. The preview label describes the generation of the routing, context, memory, and evidence architecture. It does not mean that a `v3.0.0` installer has already been published.
+> The current desktop release is **v3.0.0**. It retains the observable execution foundation from v2 while formally shipping the upgraded Router, Context, Memory, Tool Contract, and multi-provider model settings layers.
 
 ## Table of Contents
 
@@ -54,13 +54,13 @@ Questions about railway principles, history, culture, travel ideas, creative wri
 
 | Area | Current State |
 | --- | --- |
-| Downloadable desktop release | `v2.6.6` |
-| Architecture on `main` | `v3 preview / RC` |
+| Downloadable desktop release | `v3.0.0` |
+| Architecture on `main` | `v3.0.0` stable release |
 | Primary platform | Windows 10/11 x64 |
 | Desktop stack | Flask + HTML/CSS/JavaScript + pywebview |
 | Browser fallback | Automatically used when pywebview cannot start |
 | Default local address | `127.0.0.1:5033`, with automatic port conflict avoidance |
-| LLM provider | DeepSeek through an OpenAI-compatible API |
+| LLM providers | DeepSeek, OpenAI, and OpenAI-compatible services |
 | Agent modes | `FAST-GO`, `FAST-PLUS`, and `DEEP` |
 | Local storage | SQLite + JSON/JSONL + local files |
 | API-key protection | Windows DPAPI in the current user's AppData directory |
@@ -853,11 +853,11 @@ The 12306 layer uses:
 
 | Mode | Model | Thinking | Intended Use |
 | --- | --- | --- | --- |
-| `FAST-GO` | `deepseek-v4-flash` | disabled | Direct, low-latency requests |
-| `FAST-PLUS` | `deepseek-v4-flash` | enabled | Follow-up, complex dates, and mixed intent |
-| `DEEP` | `deepseek-v4-pro` | enabled | Heavy analysis and conservative reasoning |
+| `FAST-GO` | `deepseek-flash` | disabled | Direct, low-latency requests |
+| `FAST-PLUS` | `deepseek-flash` | enabled | Follow-up, complex dates, and mixed intent |
+| `DEEP` | `deepseek-flash` | enabled | Heavy analysis and conservative reasoning |
 
-DeepSeek is accessed through the OpenAI-compatible `/chat/completions` API.
+The default mapping below uses DeepSeek. Settings can assign any account-available OpenAI or compatible model ID to each runtime mode. DeepSeek is accessed through the OpenAI-compatible `/chat/completions` API.
 
 Thinking-enabled requests use:
 
@@ -872,12 +872,15 @@ extra_body={"thinking": {"type": "enabled"}}
 
 The Settings page supports:
 
+- DeepSeek, OpenAI (ChatGPT), or a custom OpenAI-compatible provider;
 - a primary key for the main Router and AnswerGenerator path;
-- an optional thinker key for thinking and high-level auxiliary calls.
+- an optional thinker key for thinking and high-level auxiliary calls;
+- independent `FAST-GO`, `FAST-PLUS`, and `DEEP` model IDs;
+- a validated HTTPS Base URL for custom compatible services (loopback HTTP is allowed for local development).
 
 When the thinker key is omitted, the application falls back to the primary key.
 
-The LLM client watches the settings version and lazily refreshes its OpenAI client. New settings apply to subsequent requests without restarting the application.
+The LLM client watches the settings version and lazily refreshes its OpenAI client. New settings apply to subsequent requests without restarting the application. DeepSeek retains its thinking extension, OpenAI uses compatible reasoning-effort parameters, and generic compatible endpoints receive only conservative Chat Completions fields.
 
 ## Fast-Mode Fact Compression
 
@@ -992,7 +995,7 @@ They are excluded from:
 
 Open:
 
-**[RailGPT v2.6.6 Release](https://github.com/EasonWheng/RailGPT/releases/tag/v2.6.6)**
+**[RailGPT v3.0.0 Release](https://github.com/EasonWheng/RailGPT/releases/tag/v3.0.0)**
 
 The Setup package is recommended for ordinary Windows use. The portable archive is suitable for a no-install trial.
 
@@ -1000,10 +1003,11 @@ After first launch:
 
 1. open `Settings`;
 2. select the `API` tab;
-3. choose DeepSeek;
-4. enter the primary API key;
-5. optionally enter a thinker API key;
-6. return to the chat interface.
+3. choose DeepSeek, OpenAI, or a custom OpenAI-compatible provider;
+4. enter the primary API key and, if needed, a thinker API key;
+5. confirm the model ID for each runtime mode;
+6. enter a Base URL when using a custom provider;
+7. return to the chat interface.
 
 API keys saved on one computer are not embedded into the installer and will not appear on another computer.
 
@@ -1187,14 +1191,14 @@ RailGPT has become significantly more capable, but it is not a cloud-scale produ
 
 - The application is local and single-user; account sync and multi-tenant isolation are not implemented.
 - Current-user DPAPI makes the full desktop experience Windows-oriented.
-- DeepSeek is the only enabled provider, although the internal client uses an OpenAI-compatible request format.
+- Custom OpenAI-compatible providers may differ in protocol support; RailGPT sends conservative Chat Completions fields by default.
 - External-provider uptime, coverage, and refresh schedules are outside RailGPT's control.
 - Historical trainset assignments are not final daily dispatch orders.
 - Delay capability covers current status, not historical or future delay.
 - `coach_layout` and `train_route_map` code assets remain in the repository, but their capabilities are currently disabled while the product experience is redesigned.
 - The `ui/` directory is historical Qt code and is not an active dependency.
 - Very long pasted text, rare slang, abrupt topic switching, and uncommon technical terminology remain important regression areas.
-- The v3 preview requires more real-world conversation testing before a formal `v3.0.0` release.
+- Model selection never bypasses RailGPT's tool contracts, evidence gates, or external API protection policies.
 
 ### Explicitly unsupported behavior
 
@@ -1221,7 +1225,7 @@ v2.0 established:
 
 This foundation remains in the current codebase.
 
-### v2.6.6: current desktop release
+### v2.6.6: previous desktop release
 
 v2.6.6 delivered:
 
@@ -1232,9 +1236,9 @@ v2.6.6 delivered:
 - Windows Setup and portable delivery;
 - baseline context and memory.
 
-### v3 preview: current `main`
+### v3.0.0: current stable release
 
-The v3 preview focuses on how the Agent reliably uses existing capabilities:
+RailGPT v3.0.0 focuses on how the Agent reliably uses existing capabilities:
 
 - MCP-style capability registry;
 - Semantic Router Council;

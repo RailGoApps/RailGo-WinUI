@@ -12,10 +12,13 @@ from llm.llm_client import (
 
 
 class FakeSettings:
-    def __init__(self, primary_key="primary-key", thinking_key=None):
+    def __init__(self, primary_key="primary-key", thinking_key=None, provider="deepseek", base_url=DEEPSEEK_BASE_URL, thinking_strategy="deepseek"):
         self.primary_key = primary_key
         self.thinking_key = thinking_key
         self.version = 0
+        self.provider = provider
+        self.base_url = base_url
+        self.thinking_strategy = thinking_strategy
         self.models = {
             "fast-go": FAST_MODEL,
             "fast-plus": FAST_MODEL,
@@ -43,9 +46,10 @@ class FakeSettings:
             raise RuntimeError("not configured")
         return {
             "version": self.version,
-            "provider": "deepseek",
-            "base_url": DEEPSEEK_BASE_URL,
+            "provider": self.provider,
+            "base_url": self.base_url,
             "models": dict(self.models),
+            "thinking_strategy": self.thinking_strategy,
             "api_key": api_key or "",
             "configured": bool(api_key),
             "slot": resolved_slot,
@@ -53,7 +57,7 @@ class FakeSettings:
 
 
 class LLMClientConfigTest(unittest.TestCase):
-    def test_uses_deepseek_v4_models_from_current_api_docs(self):
+    def test_uses_flash_for_all_default_modes(self):
         settings = FakeSettings()
         with patch("llm.llm_client.OpenAI") as openai_cls:
             fast_client = LLMClient(mode="fast-go", settings=settings)
@@ -97,7 +101,7 @@ class LLMClientConfigTest(unittest.TestCase):
             extra_body={"thinking": {"type": "enabled"}},
         )
 
-    def test_deep_uses_pro_with_thinking(self):
+    def test_deep_uses_flash_with_thinking(self):
         fake_client = self._fake_openai_client()
         settings = FakeSettings()
         with patch("llm.llm_client.OpenAI", return_value=fake_client):
@@ -153,6 +157,29 @@ class LLMClientConfigTest(unittest.TestCase):
         self.assertEqual(openai_cls.call_count, 2)
         openai_cls.assert_any_call(api_key="first-key", base_url=DEEPSEEK_BASE_URL)
         openai_cls.assert_any_call(api_key="second-key", base_url=DEEPSEEK_BASE_URL)
+
+    def test_openai_reasoning_mode_uses_standard_effort_only(self):
+        fake_client = self._fake_openai_client()
+        settings = FakeSettings(provider="openai", base_url="https://api.openai.com/v1", thinking_strategy="openai")
+        settings.models["deep"] = "gpt-5"
+        with patch("llm.llm_client.OpenAI", return_value=fake_client):
+            LLMClient(mode="deep", settings=settings).generate([{"role": "user", "content": "hi"}])
+
+        fake_client.chat.completions.create.assert_called_once_with(
+            model="gpt-5", messages=[{"role": "user", "content": "hi"}], stream=False,
+            reasoning_effort=DEEP_REASONING_EFFORT,
+        )
+
+    def test_generic_compatible_provider_uses_portable_request_fields(self):
+        fake_client = self._fake_openai_client()
+        settings = FakeSettings(provider="openai_compatible", base_url="https://example.test/v1", thinking_strategy="generic")
+        settings.models["fast-plus"] = "vendor-model"
+        with patch("llm.llm_client.OpenAI", return_value=fake_client):
+            LLMClient(mode="fast-plus", settings=settings).generate([{"role": "user", "content": "hi"}])
+
+        fake_client.chat.completions.create.assert_called_once_with(
+            model="vendor-model", messages=[{"role": "user", "content": "hi"}], stream=False,
+        )
 
     def _fake_openai_client(self, stream_chunks=None):
         fake_client = MagicMock()

@@ -435,12 +435,16 @@ def update_api_settings():
     provider = str(data.get("provider") or DEFAULT_PROVIDER_ID).strip().lower()
     primary_api_key = data.get("primary_api_key") if "primary_api_key" in data else None
     thinking_api_key = data.get("thinking_api_key") if "thinking_api_key" in data else None
+    models = data.get("models") if "models" in data else None
+    custom_base_url = data.get("custom_base_url") if "custom_base_url" in data else None
 
     try:
         payload = _settings.save_api_settings(
             provider,
             primary_api_key=primary_api_key,
             thinking_api_key=thinking_api_key,
+            models=models,
+            custom_base_url=custom_base_url,
         )
     except AppSettingsError as exc:
         return jsonify({"error": str(exc)}), 400
