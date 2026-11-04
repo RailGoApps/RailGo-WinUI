@@ -5,13 +5,18 @@ using Microsoft.UI.Xaml.Controls;
 using RailGo.Contracts.Services;
 using RailGo.Views;
 
+using RailGo.ViewModels.Pages.Chat;
 using RailGo.ViewModels.Pages.Shell;
 using RailGo.ViewModels.Pages.Settings;
 using RailGo.ViewModels.Pages.Settings.DataSources;
+using RailGo.ViewModels.Pages.TrainEmus;
 using RailGo.ViewModels.Pages.Trains;
+using RailGo.ViewModels.Pages.Stations;
+using RailGo.ViewModels.Pages.StationToStation;
 using RailGo.ViewModels.Pages.TrainEmus;
 using RailGo.ViewModels.Pages.Stations;
 using RailGo.ViewModels.Pages.StationToStation;
+using RailGo.Views.Pages.Chat;
 using RailGo.Views.Pages.Shell;
 using RailGo.Views.Pages.Settings;
 using RailGo.Views.Pages.Settings.DataSources;
@@ -43,6 +48,9 @@ public class PageService : IPageService
         Configure<DataSources_OnlineDatabasesViewModel, DataSources_OnlineDatabasesPage>();
         Configure<DataSources_ThirdPartyApiServicesViewModel, DataSources_ThirdPartyApiServicesPage>();
         Configure<DataSources_ThirdPartyDatabasesViewModel, DataSources_ThirdPartyDatabasesPage>();
+
+        // AI Chat page
+        Configure<ChatViewModel, ChatPage>();
     }
 
     public Type GetPageType(string key)

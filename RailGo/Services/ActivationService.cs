@@ -4,6 +4,7 @@ using RailGo.Views.Pages.Shell;
 
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using RailGo.AI.Services;
 
 namespace RailGo.Services;
 
@@ -13,18 +14,21 @@ public class ActivationService : IActivationService
     private readonly IEnumerable<IActivationHandler> _activationHandlers;
     private readonly IThemeSelectorService _themeSelectorService;
     private readonly IBackgroundImageService _backgroundImageService;
+    private readonly IRailGptStartupCoordinator _railGptStartupCoordinator;
     private UIElement? _shell = null;
 
     public ActivationService(
         ActivationHandler<LaunchActivatedEventArgs> defaultHandler,
         IEnumerable<IActivationHandler> activationHandlers,
         IThemeSelectorService themeSelectorService,
-        IBackgroundImageService backgroundImageService)
+        IBackgroundImageService backgroundImageService,
+        IRailGptStartupCoordinator railGptStartupCoordinator)
     {
         _defaultHandler = defaultHandler;
         _activationHandlers = activationHandlers;
         _themeSelectorService = themeSelectorService;
         _backgroundImageService = backgroundImageService;
+        _railGptStartupCoordinator = railGptStartupCoordinator;
     }
 
     public async Task ActivateAsync(object activationArgs)
@@ -74,6 +78,8 @@ public class ActivationService : IActivationService
     private async Task StartupAsync()
     {
         await _themeSelectorService.SetRequestedThemeAsync();
-        await Task.CompletedTask;
+        // The window is already visible. Warm up RailGPT in the background
+        // without delaying RailGo's first interactive frame.
+        _railGptStartupCoordinator.WarmUp();
     }
 }
