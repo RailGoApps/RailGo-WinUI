@@ -27,9 +27,9 @@ public class OnlineApiService
         return await HttpService.GetAsync<ObservableCollection<string>>($"{url}?keyword={System.Net.WebUtility.UrlEncode(keyword)}");
     }
 
-    public static async Task<Train> TrainQueryAsync(string trainNumber, string url)
+    public static async Task<Train> TrainQueryAsync(string trainNumber, string date, string url)
     {
-        return await HttpService.GetAsync<Train>($"{url}?train={System.Net.WebUtility.UrlEncode(trainNumber)}");
+        return await GetV2Async<Train>($"{url}?trainNum={System.Net.WebUtility.UrlEncode(trainNumber)}&date={date}");
     }
 
     public static async Task<ObservableCollection<TrainRunInfo>> StationToStationQueryAsync(string from, string to, string date, string url, bool city)
@@ -59,7 +59,7 @@ public class OnlineApiService
     /// </summary>
     public static async Task<BigScreenData> GetBigScreenDataAsync(string stationTelecode, string url, string kind = "departure")
     {
-        return await HttpService.GetAsync<BigScreenData>($"{url}?stationTelecode={stationTelecode}&kind={kind}");
+        return await HttpService.GetAsync<BigScreenData>($"{url}?stationTelecode={stationTelecode}&kind={kind}&ver=3");
     }
 
     #endregion
@@ -68,22 +68,27 @@ public class OnlineApiService
 
     public static async Task<ObservableCollection<EmuOperation>> EmuQueryAsync(string type, string keyword, string url)
     {
-        return await HttpService.GetAsync<ObservableCollection<EmuOperation>>($"{url}/{System.Net.WebUtility.UrlEncode(keyword)}");
+        var result = new ObservableCollection<EmuOperation>();
+        var response = await HttpService.GetAsync<EmuQueryResponse>($"{url}?keyword={System.Net.WebUtility.UrlEncode(keyword)}");
+
+        if (response?.Data != null)
+        {
+            foreach (var item in response.Data)
+            {
+                result.Add(item);
+            }
+        }
+
+        return result;
     }
 
-    public static async Task<ObservableCollection<EmuAssignment>> EmuAssignmentQueryAsync(string type, string keyword, int cursor, int count, string url)
+    /// <summary>
+    /// 动车组配属信息 (GET /api/car/info?id=车组号)
+    /// </summary>
+    public static async Task<EmuCarInfo> EmuCarInfoAsync(string emuId, string url)
     {
-        var formData = new List<KeyValuePair<string, string>>
-        {
-            new("type", type),
-            new("keyword", keyword),
-            new("trainCategory", "0"),
-            new("cursor", cursor.ToString()),
-            new("count", count.ToString())
-        };
-
-        var onlineResponse = await HttpService.PostFormAsync<EmuAssignmentResponse>(url, formData);
-        return onlineResponse?.Data?.Data;
+        var response = await HttpService.GetAsync<EmuCarInfoResponse>($"{url}?id={System.Net.WebUtility.UrlEncode(emuId)}");
+        return response?.Data;
     }
 
     #endregion
@@ -91,14 +96,14 @@ public class OnlineApiService
     #region 实时数据接口
 
     /// <summary>
-    /// 正晚点查询 (V2 API: GET /api/v2/getTrainDelay)
+    /// 正晚点查询 (V2 API: GET /api/v2/getTrainDelayAll)
     /// </summary>
-    public static async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string date, string trainNumber, string fromStation, string toStation, string url)
+    public static async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string trainNumber, string date, string url)
     {
         var result = new ObservableCollection<DelayInfo>();
         try
         {
-            var delayData = await GetV2Async<List<DelayInfo>>($"{url}?trainNum={System.Net.WebUtility.UrlEncode(trainNumber)}&stationTelecode={System.Net.WebUtility.UrlEncode(fromStation)}&date={date}");
+            var delayData = await GetV2Async<List<DelayInfo>>($"{url}?trainNum={System.Net.WebUtility.UrlEncode(trainNumber)}&date={date}");
             if (delayData != null)
             {
                 foreach (var item in delayData)
@@ -113,21 +118,47 @@ public class OnlineApiService
         return result;
     }
 
-    public static async Task<PlatformInfo> QueryPlatformInfoAsync(string stationCode, string trainDate, string type, string stationTrainCode, string url)
+    /// <summary>
+    /// 检票口、站台及出站口查询 (V2 API: GET /api/v2/getExit)
+    /// </summary>
+    public static async Task<StationExitInfo> QueryPlatformInfoAsync(string trainNumber, string stationTelecode, string date, string kind, string url)
     {
-        var data = new
+        try
         {
-            stationCode,
-            trainDate,
-            type,
-            stationTrainCode
-        };
-        return await HttpService.PostAsync<PlatformInfo>(url, data);
+            return await GetV2Async<StationExitInfo>($"{url}?trainNum={System.Net.WebUtility.UrlEncode(trainNumber)}&stationTelecode={System.Net.WebUtility.UrlEncode(stationTelecode)}&date={date}&kind={kind}");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 列车车厢图查询 (V2 API: GET /api/v2/getCoachPic)
+    /// </summary>
+    public static async Task<CoachPicInfo> QueryCoachPicAsync(string trainNumber, string url)
+    {
+        try
+        {
+            return await GetV2Async<CoachPicInfo>($"{url}?train={System.Net.WebUtility.UrlEncode(trainNumber)}");
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     #endregion
 
     #region 其他接口
+
+    /// <summary>
+    /// 列车图鉴搜索
+    /// </summary>
+    public static async Task<TrainAtlasResponse> QueryTrainAtlasAsync(string keyword, int page, int perPage, string url)
+    {
+        return await HttpService.GetAsync<TrainAtlasResponse>($"{url}?q={System.Net.WebUtility.UrlEncode(keyword)}&page={page}&per_page={perPage}");
+    }
 
     public static async Task<byte[]> DownloadEmuImageAsync(string trainModel, string url)
     {

@@ -406,3 +406,10 @@ solution-config.props
 
 # macOS Finder metadata
 .DS_Store
+
+# RailGo project-specific: large runtime/binary files at repo root
+railgo.sqlite
+*.sqlite
+RailGo-Setup-*.exe
+*.bak
+RailGo-main/

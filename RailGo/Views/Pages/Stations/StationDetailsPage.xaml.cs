@@ -89,7 +89,7 @@ public sealed partial class StationDetailsPage : Page
                     };
                     break;
                 case "StationTrains_FromStation":
-                    icon = "\uF161";
+                    icon = "\uE707";
                     BarHeader = _item_trains.FromStation.Station;
                     page = new StationDetailsPage()
                     {
@@ -97,7 +97,7 @@ public sealed partial class StationDetailsPage : Page
                     };
                     break;
                 case "StationTrains_ToStation":
-                    icon = "\uF161";
+                    icon = "\uE707";
                     BarHeader = _item_trains.ToStation.Station;
                     page = new StationDetailsPage()
                     {
@@ -113,7 +113,7 @@ public sealed partial class StationDetailsPage : Page
                     };
                     break;
                 case "BigScreen_FromStation":
-                    icon = "\uF161";
+                    icon = "\uE707";
                     BarHeader = _item_bigscreen.FromStation;                   
                     Details = ViewModel.FindstationTrainsByTrainNumber(_item_bigscreen.TrainNumber);
                     if (Details == null)
@@ -131,7 +131,7 @@ public sealed partial class StationDetailsPage : Page
                         };
                     break;
                 case "BigScreen_ToStation":
-                    icon = "\uF161";
+                    icon = "\uE707";
                     BarHeader = _item_bigscreen.ToStation;
                     Details = ViewModel.FindstationTrainsByTrainNumber(_item_bigscreen.TrainNumber);
                     if (Details == null)

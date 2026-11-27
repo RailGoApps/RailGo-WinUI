@@ -24,7 +24,7 @@
             <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="0">
                 <TextBlock x:Uid="TrainNumberHeader" Margin="0,10,0,10"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Height="35">
-                    <TextBox x:Name="TrainNumberTextBox" x:Uid="TrainNumberTextBox" Width="200" Text="{x:Bind ViewModel.InputTrainTrips, Mode=TwoWay}"/>
+                    <TextBox x:Name="TrainNumberTextBox" x:Uid="TrainNumberTextBox" Width="200" Text="{x:Bind ViewModel.InputTrainTrips, Mode=TwoWay}" KeyDown="TrainNumberTextBox_KeyDown"/>
                     <Button x:Name="GetBtn" x:Uid="GetBtn" Style="{StaticResource AccentButtonStyle}" Click="GetTrainNumberBtn_Click" Margin="20,0"/>
                 </StackPanel>
             </StackPanel>
@@ -59,7 +59,7 @@
                                                FontSize="16"
                                                FontWeight="SemiBold"
                                                VerticalAlignment="Center"
-                                               Foreground="Black"/>
+                                               Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
                                 </StackPanel>
                             </Button>
                         </DataTemplate>

@@ -55,4 +55,12 @@ public sealed partial class Train_NumberPage : Page
         }
     }
 
+    private void TrainNumberTextBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key == global::Windows.System.VirtualKey.Enter)
+        {
+            GetTrainNumberBtn_Click(sender, e);
+        }
+    }
+
 }

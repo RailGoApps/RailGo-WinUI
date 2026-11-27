@@ -36,7 +36,6 @@ public partial class DataSources_ShellViewModel : ObservableRecipient
     public async void CheckAvailableModes()
     {
         var MainViewModel = App.GetService<DataSources_MainViewModel>();
-        MainViewModel.IfOfflineAvailable = DBGetService.LocalDatabaseExists();
         var QueryModeSelcted = await _dataSourceService.GetQueryModeAsync();
         if (QueryModeSelcted == "Offline")
         {
@@ -50,6 +49,11 @@ public partial class DataSources_ShellViewModel : ObservableRecipient
                 MainViewModel.QuerySource = "在线（RailGo默认）";
                 QuerySourceCode = "OnlineRailGO";
             }
+        }
+        else
+        {
+            MainViewModel.QuerySource = "在线（RailGo默认）";
+            QuerySourceCode = "OnlineRailGO";
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Xaml.Controls;
+﻿﻿﻿﻿using Microsoft.UI.Xaml.Controls;
 using System.Diagnostics;
 
 using RailGo.Core.Models;
@@ -11,6 +11,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 using RailGo.Views.Pages.Stations;
 using RailGo.Views.Pages.TrainEmus;
+using RailGo.Views.ContentDialogs;
 
 namespace RailGo.Views.Pages.Trains;
 
@@ -36,10 +37,30 @@ public sealed partial class TrainNumberTripDetailsPage : Page
     public void OnLoad(object sender, RoutedEventArgs e)
     {
         train_no = DataFromLast.Number;
-        date = System.DateTime.Now.ToString("yyyyMMdd");
+        date = string.IsNullOrWhiteSpace(DataFromLast.Date) ? System.DateTime.Now.ToString("yyyyMMdd") : DataFromLast.Date;
         ViewModel.GetInformationCommand.Execute((train_no, date));
         this.Loaded -= OnLoad;
     }
+    private async void ViewCoachPicBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var trainNumber = ViewModel.CoachTrainNumber;
+        if (string.IsNullOrWhiteSpace(trainNumber))
+        {
+            trainNumber = train_no?.Split('/')[0];
+        }
+
+        if (string.IsNullOrWhiteSpace(trainNumber))
+        {
+            return;
+        }
+
+        var dialog = new CoachPicDialog(trainNumber)
+        {
+            XamlRoot = this.XamlRoot
+        };
+        await dialog.ShowAsync();
+    }
+
     private async void DetailBtnClick(object sender, RoutedEventArgs e)
     {
         if (sender is HyperlinkButton button)
@@ -55,7 +76,7 @@ public sealed partial class TrainNumberTripDetailsPage : Page
             switch (button.Name.ToString())
             {
                 case "ViaStationsStationInformation":
-                    icon = "\uF161";
+                    icon = "\uE707";
                     BarHeader = _item_ViaStaion.Station;
                     page = new StationDetailsPage()
                     {
@@ -67,7 +88,7 @@ public sealed partial class TrainNumberTripDetailsPage : Page
                     BarHeader = _item_EmuRouting.TrainNo;
                     page = new TrainNumberTripDetailsPage()
                     {
-                        DataContext = new TrainPreselectResult { FullNumber = _item_EmuRouting.TrainNo }
+                        DataContext = new TrainPreselectResult { FullNumber = _item_EmuRouting.TrainNo, Date = _item_EmuRouting.Date?.Replace("-", "") }
                     };
                     break;
                 case "RoutingsTrainEmuDetailsInformation":
@@ -87,7 +108,7 @@ public sealed partial class TrainNumberTripDetailsPage : Page
                     };
                     break;
                 case "RoutingsFromStationInformation":
-                    icon = "\uF161";
+                    icon = "\uE707";
                     BarHeader = _item_Routings.FromStation;
                     Details = ViewModel.FindstationTrainsByStationName(BarHeader);
                     if (Details == null)
@@ -105,7 +126,7 @@ public sealed partial class TrainNumberTripDetailsPage : Page
                     };
                     break;
                 case "RoutingsToStationInformation":
-                    icon = "\uF161";
+                    icon = "\uE707";
                     BarHeader = _item_Routings.ToStation;
                     Details = ViewModel.FindstationTrainsByStationName(BarHeader);
                     if (Details == null)

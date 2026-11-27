@@ -6,11 +6,13 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     xmlns:ButtonModel="using:RailGo.Core.Models.Controls"
+    xmlns:helpers="using:RailGo.Helpers"
     mc:Ignorable="d"
     Loaded="Page_Loaded"
     Unloaded="Page_Unloaded">
 
     <Page.Resources>
+        <helpers:StringToGeometryConverter x:Key="StringToGeometryConverter"/>
         <Style x:Key="FeatureButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="220"/>
             <Setter Property="Height" Value="180"/>
@@ -57,12 +59,15 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <FontIcon Grid.Row="0" Grid.Column="0"
-                         Glyph="{Binding Icon}"
-                         FontSize="40"
-                         HorizontalAlignment="Left"
-                         VerticalAlignment="Top"
-                         Margin="0,0,0,10"/>
+                <Path Grid.Row="0" Grid.Column="0"
+                      Data="{Binding IconPath, Converter={StaticResource StringToGeometryConverter}}"
+                      Fill="{ThemeResource TextFillColorPrimaryBrush}"
+                      Stretch="Uniform"
+                      Width="40"
+                      Height="40"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Margin="0,0,0,10"/>
 
                 <TextBlock Grid.Row="1" Grid.Column="0"
                           Text="{Binding Title}"
@@ -100,8 +105,8 @@
                 <Grid Grid.Row="0" Margin="0,0,0,8">
                     <InfoBar
                     IsOpen="True"
-                    Severity="Informational"
-                    Title="公告"
+                    Severity="{x:Bind ViewModel.NoticeSeverity, Mode=OneWay}"
+                    Title="{x:Bind ViewModel.NoticeTitle, Mode=OneWay}"
                     IsClosable="False"
                     Message="{x:Bind ViewModel.CurrentNotice, Mode=TwoWay}">
                         <InfoBar.ActionButton>
@@ -120,6 +125,7 @@
                                 <Viewbox Stretch="Uniform" MaxHeight="{Binding MaxBannerHeight, Mode=OneWay}">
                                     <Image Source="{x:Bind}" 
                                        Stretch="None"
+                                       Tapped="BannerImage_Tapped"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"/>
                                 </Viewbox>
@@ -169,7 +175,7 @@
                             ContentTemplate="{StaticResource FeatureButtonTemplate}">
                                 <Button.Content>
                                     <ButtonModel:FeatureButtonData 
-                                Icon="&#xE7F0;"
+                                IconPath="F0 M2,11 C2,8.5 4,7 6.5,7 H15 C17,7 18.5,8 19.5,10 L19.5,14.5 H2 Z M4.5,9.5 H18 L18,11 H4.5 Z M6,14.5 A1.5,1.5 0 1 0 6,17.5 A1.5,1.5 0 1 0 6,14.5 Z M16,14.5 A1.5,1.5 0 1 0 16,17.5 A1.5,1.5 0 1 0 16,14.5 Z M8,18 H9.5 V19 H8 Z M11,18 H12.5 V19 H11 Z M14,18 H15.5 V19 H14 Z"
                                 Title="动车组交路"
                                 Description="查询动车组配属和运行交路。"/>
                                 </Button.Content>
@@ -182,7 +188,7 @@
                             ContentTemplate="{StaticResource FeatureButtonTemplate}">
                                 <Button.Content>
                                     <ButtonModel:FeatureButtonData 
-                                Icon="&#xE7C0;"
+                                IconPath="F0 M3,11 C3,8.5 5,7 7.5,7 H13 C15,7 16.5,8 17.5,10 L17.5,14.5 H3 Z M5,9.5 H16 L16,11 H5 Z M6.5,14.5 A1.5,1.5 0 1 0 6.5,17.5 A1.5,1.5 0 1 0 6.5,14.5 Z M14,14.5 A1.5,1.5 0 1 0 14,17.5 A1.5,1.5 0 1 0 14,14.5 Z M18,13 A2,2 0 1 0 18,17 A2,2 0 1 0 18,13 Z M19.4,16.4 L22,19 L21,20 L18.4,17.4 Z"
                                 Title="车次查询"
                                 Description="查询时刻、开行日等信息。"/>
                                 </Button.Content>
@@ -195,7 +201,7 @@
                                 ContentTemplate="{StaticResource FeatureButtonTemplate}">
                                 <Button.Content>
                                     <ButtonModel:FeatureButtonData 
-                                    Icon="&#xE707;"
+                                    IconPath="F0 M12,2.5 L22,9 H2 Z M3,9.5 H21 V11 H3 Z M4.5,11.5 H7.5 V20 H4.5 Z M10,11.5 H14 V20 H10 Z M16.5,11.5 H19.5 V20 H16.5 Z M2,20.5 H22 V21.5 H2 Z"
                                     Title="车站信息"
                                     Description="查询车站基础信息、大屏数据等。"/>
                                 </Button.Content>
@@ -208,9 +214,22 @@
                                 ContentTemplate="{StaticResource FeatureButtonTemplate}">
                                 <Button.Content>
                                     <ButtonModel:FeatureButtonData 
-                                    Icon="&#xE80F;"
+                                    IconPath="F0 M5,3 C3,3 1.5,4.8 1.5,7 C1.5,9.8 5,13.5 5,13.5 C5,13.5 8.5,9.8 8.5,7 C8.5,4.8 7,3 5,3 Z M5,5.5 A1.5,1.5 0 1 0 5,8.5 A1.5,1.5 0 1 0 5,5.5 Z M14,11 C12,11 10.5,12.8 10.5,15 C10.5,17.8 14,21.5 14,21.5 C14,21.5 17.5,17.8 17.5,15 C17.5,12.8 16,11 14,11 Z M14,13.5 A1.5,1.5 0 1 0 14,16.5 A1.5,1.5 0 1 0 14,13.5 Z M8.5,10.5 H12 L10.5,9 Z M10.5,14.5 H8.5 L10,16 Z"
                                     Title="站到站车次查询"
                                     Description="查询两站之间的车次信息。"/>
+                                </Button.Content>
+                            </Button>
+
+                            <Button x:Name="ToTrainAtlasButton"
+                                Command="{x:Bind ViewModel.NavigationCommand}"
+                                CommandParameter="{x:Bind ToTrainAtlasButton.Name}"
+                                Style="{StaticResource FeatureButtonStyle}"
+                                ContentTemplate="{StaticResource FeatureButtonTemplate}">
+                                <Button.Content>
+                                    <ButtonModel:FeatureButtonData
+                                    IconPath="F0 M3,5 C3,3.9 3.9,3 5,3 H19 C20.1,3 21,3.9 21,5 V19 C21,20.1 20.1,21 19,21 H5 C3.9,21 3,20.1 3,19 Z M5,5 V19 H19 V5 Z M7,14 L9.5,11 L12,14 L14,12 L17,15 L17,17 L7,17 Z M8,8 A1.5,1.5 0 1 0 8,11 A1.5,1.5 0 1 0 8,8 Z"
+                                    Title="列车图鉴"
+                                    Description="浏览各型列车的高清图片。"/>
                                 </Button.Content>
                             </Button>
                         </StackPanel>

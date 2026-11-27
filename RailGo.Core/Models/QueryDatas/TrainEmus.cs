@@ -9,26 +9,38 @@ using Newtonsoft.Json;
 namespace RailGo.Core.Models.QueryDatas;
 
 #region 动车组运行交路
-// 动车组运行交路
+// 动车组运行交路（V2）
 public class EmuOperation
 {
-    [JsonProperty("date")]
+    [JsonProperty("runDate")]
     public string Date
     {
         get; set;
     }
 
-    [JsonProperty("train_no")]
+    [JsonProperty("trainNum")]
     public string TrainNo
     {
         get; set;
     }
 
-    [JsonProperty("emu_no")]
-    public string EmuNo
+    // V2 接口返回的车组号数组，重联时会有多个
+    [JsonProperty("trainCode")]
+    public List<string> TrainCodes
     {
         get; set;
     }
+
+    [JsonProperty("coupling")]
+    public bool Coupling
+    {
+        get; set;
+    }
+
+    [JsonIgnore]
+    public string EmuNo => TrainCodes != null && TrainCodes.Count > 0
+        ? string.Join("/", TrainCodes)
+        : null;
 
     // 动车组型号（从EmuNo中提取）
     [JsonIgnore]
@@ -39,16 +51,18 @@ public class EmuOperation
             if (string.IsNullOrEmpty(EmuNo))
                 return null;
 
+            var first = EmuNo.Split('/')[0];
+
             // 提取型号部分（去掉最后4位数字）
-            if (EmuNo.Length > 4)
+            if (first.Length > 4)
             {
-                return EmuNo.Substring(0, EmuNo.Length - 4);
+                return first.Substring(0, first.Length - 4).TrimEnd('-');
             }
-            return EmuNo;
+            return first;
         }
     }
 
-    // 动车组车号（从EmuNo中提取最后4位数字）
+    // 动车组车号（从EmuNo中提取最后4位数字，重联时用 / 连接）
     [JsonIgnore]
     public string EmuNoCode
     {
@@ -57,12 +71,7 @@ public class EmuOperation
             if (string.IsNullOrEmpty(EmuNo))
                 return null;
 
-            // 提取最后4位数字作为车号
-            if (EmuNo.Length >= 4)
-            {
-                return EmuNo.Substring(EmuNo.Length - 4);
-            }
-            return EmuNo;
+            return string.Join("/", EmuNo.Split('/').Select(code => code.Length >= 4 ? code.Substring(code.Length - 4) : code));
         }
     }
 
@@ -79,76 +88,52 @@ public class EmuOperation
         }
     }
 }
-#endregion
 
-#region 动车组配属查询请求响应及信息
-// 动车组配属查询响应
-public class EmuAssignmentResponse
+// 动车组运行查询响应（V2）
+public class EmuQueryResponse
 {
-    [JsonProperty("code")]
-    public int Code
+    [JsonProperty("success")]
+    public bool Success
     {
         get; set;
     }
 
     [JsonProperty("data")]
-    public EmuAssignmentPagedData Data
-    {
-        get; set;
-    }
-
-    [JsonProperty("message")]
-    public string Message
+    public List<EmuOperation> Data
     {
         get; set;
     }
 }
+#endregion
 
-// 分页数据包装（动车组配属查询响应）
-public class EmuAssignmentPagedData
+#region 动车组配属查询请求响应及信息
+// 动车组配属信息响应 (GET /api/car/info?id=车组号)
+public class EmuCarInfoResponse
 {
-    [JsonProperty("cursor")]
-    public int Cursor
-    {
-        get; set;
-    }
-
-    [JsonProperty("count")]
-    public int Count
-    {
-        get; set;
-    }
-
-    [JsonProperty("hasMore")]
-    public bool HasMore
-    {
-        get; set;
-    }
-
-    [JsonProperty("totalCount")]
-    public int TotalCount
+    [JsonProperty("success")]
+    public bool Success
     {
         get; set;
     }
 
     [JsonProperty("data")]
-    public ObservableCollection<EmuAssignment> Data
+    public EmuCarInfo Data
     {
         get; set;
     }
 }
 
 // 动车组配属信息
-public class EmuAssignment
+public class EmuCarInfo
 {
-    [JsonProperty("trainModel")]
-    public string TrainModel
+    [JsonProperty("id")]
+    public string Id
     {
         get; set;
     }
 
-    [JsonProperty("trainSerialNumber")]
-    public string TrainSerialNumber
+    [JsonProperty("model")]
+    public string Model
     {
         get; set;
     }
@@ -159,20 +144,26 @@ public class EmuAssignment
         get; set;
     }
 
-    [JsonProperty("department")]
-    public string Department
+    [JsonProperty("depot")]
+    public string Depot
     {
         get; set;
     }
 
-    [JsonProperty("manufacturer")]
-    public string Manufacturer
+    [JsonProperty("train_depot")]
+    public string TrainDepot
     {
         get; set;
     }
 
-    [JsonProperty("comment")]
-    public string Comment
+    [JsonProperty("trainset_manufacturer")]
+    public string TrainsetManufacturer
+    {
+        get; set;
+    }
+
+    [JsonProperty("sub_model")]
+    public string SubModel
     {
         get; set;
     }

@@ -78,7 +78,7 @@
                     <controls:SettingsCard
                                Description="访问 RailGo 官方网站获取更多信息"
                                Header="打开官网"
-                               HeaderIcon="{ui:FontIcon Glyph=&#xE71B;}"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE774;}"
                                Margin="{StaticResource XSmallTopMargin}"
                                IsClickEnabled="True"
                                Click="OnOpenWebsiteClicked">
@@ -86,7 +86,7 @@
                     <controls:SettingsCard
                                Description="访问 RailGo Center 管理中心"
                                Header="RailGo Center"
-                               HeaderIcon="{ui:FontIcon Glyph=&#xE8D6;}"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE9AC;}"
                                Margin="{StaticResource XSmallTopMargin}"
                                IsClickEnabled="True"
                                Click="OnOpenRailGoCenterClicked">
@@ -99,6 +99,26 @@
                                IsClickEnabled="True"
                                Click="OnJoinGroupClicked">
                     </controls:SettingsCard>
+                    <controls:SettingsCard
+                               Description="支持 RailGo 的持续开发与维护"
+                               Header="赞助"
+                               Margin="{StaticResource XSmallTopMargin}"
+                               IsClickEnabled="True"
+                               Click="OnSponsorClicked">
+                        <controls:SettingsCard.HeaderIcon>
+                            <PathIcon Data="F0 M12,21.35 L10.55,20.03 C5.4,15.36 2,12.28 2,8.5 C2,5.42 4.42,3 7.5,3 C9.24,3 10.91,3.81 12,5.09 C13.09,3.81 14.76,3 16.5,3 C19.58,3 22,5.42 22,8.5 C22,12.28 18.6,15.36 13.45,20.04 Z" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </controls:SettingsCard>
+                    <controls:SettingsCard
+                               Description="查看参与开发、赞助与图片贡献的人员名单"
+                               Header="鸣谢"
+                               Margin="{StaticResource XSmallTopMargin}"
+                               IsClickEnabled="True"
+                               Click="OnAcknowledgementsClicked">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE77B;" />
+                        </controls:SettingsCard.HeaderIcon>
+                    </controls:SettingsCard>
                 </StackPanel>
 
                 <!-- 关于 -->
@@ -106,7 +126,7 @@
                 <StackPanel Margin="{StaticResource XSmallTopMargin}">
                     <controls:SettingsCard
                                Header="版本信息"
-                               HeaderIcon="{ui:FontIcon Glyph=&#xE7BE;}"
+                               HeaderIcon="{ui:FontIcon Glyph=&#xE7C1;}"
                                Margin="{StaticResource XSmallTopMargin}">
                         <TextBlock Text="{x:Bind ViewModel.VersionDescription, Mode=OneWay}" 
                                    Style="{ThemeResource BodyTextBlockStyle}" />
@@ -151,6 +171,36 @@
                            FontWeight="Bold"
                            FontSize="18"
                            HorizontalAlignment="Center"/>
+            </StackPanel>
+        </ContentDialog>
+
+        <!-- 赞助对话框 -->
+        <ContentDialog x:Name="SponsorDialog"
+                       Title="赞助 RailGo"
+                       CloseButtonText="关闭"
+                       DefaultButton="Close">
+            <StackPanel Spacing="12">
+                <TextBlock TextWrapping="WrapWholeWords">
+                    感谢你对 RailGo 的支持，你的每一份赞助都会用于软件的持续开发与维护。
+                </TextBlock>
+                <Border
+                    HorizontalAlignment="Center"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="8">
+                    <ScrollViewer
+                        MaxHeight="420"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+                        <Image
+                            Source="/Assets/Sponsor.jpg"
+                            MaxWidth="400"
+                            Stretch="Uniform"
+                            AutomationProperties.Name="赞助二维码" />
+                    </ScrollViewer>
+                </Border>
             </StackPanel>
         </ContentDialog>
     </Grid>

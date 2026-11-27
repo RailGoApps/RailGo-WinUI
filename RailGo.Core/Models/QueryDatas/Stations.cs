@@ -277,24 +277,13 @@ public class StationScreenItem
     }
 
     [JsonIgnore]
-    public string DisplayWaitingRoom
+    public string DisplayTicketGate
     {
         get
         {
             if (BigScreenPort == null || BigScreenPort.Count == 0)
                 return string.Empty;
-            return BigScreenPort[0];
-        }
-    }
-
-    [JsonIgnore]
-    public string DisplayTicketGate
-    {
-        get
-        {
-            if (BigScreenPort == null || BigScreenPort.Count <= 1)
-                return string.Empty;
-            return BigScreenPort[1];
+            return string.Join("、", BigScreenPort);
         }
     }
 
@@ -304,17 +293,6 @@ public class StationScreenItem
         get
         {
             return BigScreenStatus ?? BigScreenStatusCode ?? string.Empty;
-        }
-    }
-
-    [JsonIgnore]
-    public string WaitingArea
-    {
-        get
-        {
-            if (BigScreenPort == null || BigScreenPort.Count == 0)
-                return string.Empty;
-            return string.Join("/", BigScreenPort);
         }
     }
 }
@@ -388,6 +366,12 @@ public class StationTrain
     public string DisplayFullNumber => NumberFull != null && NumberFull.Any()
         ? string.Join("/", NumberFull)
         : Number ?? string.Empty;
+
+    /// <summary>
+    /// 停站时间：终到/始发车次接口返回 0，此时显示为“—”
+    /// </summary>
+    [JsonIgnore]
+    public string DisplayStopTime => StopTime > 0 ? $"{StopTime} 分" : "—";
 }
 
 // 车次中的车站信息

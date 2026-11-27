@@ -50,22 +50,27 @@
                 </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_EMU_Routing" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.TrainEmus.EMU_RoutingViewModel">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7C0;"/>
+                        <PathIcon Data="F0 M3,9 H16.5 C19,9 21,11.2 21,14 C21,16.8 19,19 16.5,19 H3 Z M5,11 H8 V13 H5 Z M10,11 H13 V13 H10 Z M15,11 H17.5 V13 H15 Z M7,9 L5.5,5.5 H7 L8.5,9 Z M5,3.8 H17 V4.8 H5 Z M2,21 H22 V22 H2 Z"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_Train_Number" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.Trains.Train_NumberViewModel">
                     <NavigationViewItem.Icon>
-                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE787;"/>
+                        <PathIcon Data="F0 M6,2 H18 A3,3 0 0 1 21,5 V22 H3 V5 A3,3 0 0 1 6,2 Z M6,5.2 H18 V9 H6 Z M7,12 H10 V15 H7 Z M14,12 H17 V15 H14 Z M7,17 H17 V19 H7 Z"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_Station_Information" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.Stations.Station_InformationViewModel">
                     <NavigationViewItem.Icon>
-                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xF161;"/>
+                        <PathIcon Data="F0 M12,2 L22,8.5 H2 Z M4,9.5 H6.5 V20 H4 Z M9.25,9.5 H11.75 V20 H9.25 Z M14.5,9.5 H17 V20 H14.5 Z M19.75,9.5 H22.25 V20 H19.75 Z M2,20.5 H22 V22 H2 Z"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Uid="Shell_StationToStation" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.StationToStation.StationToStationViewModel">
                     <NavigationViewItem.Icon>
-                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE80F;"/>
+                        <PathIcon Data="F0 M6,2.3 C3.2,2.3 1,4.6 1,7.3 C1,10.4 6,14.3 6,14.3 C6,14.3 11,10.4 11,7.3 C11,4.6 8.8,2.3 6,2.3 Z M3.8,7.3 A2.2,2.2 0 1 1 8.2,7.3 A2.2,2.2 0 1 1 3.8,7.3 Z M17.5,11 C14.9,11 12.8,13.2 12.8,15.8 C12.8,18.7 17.5,22.5 17.5,22.5 C17.5,22.5 22.2,18.7 22.2,15.8 C22.2,13.2 20.1,11 17.5,11 Z M15.5,15.8 A2,2 0 1 1 19.5,15.8 A2,2 0 1 1 15.5,15.8 Z M8.5,12.7 H11 V13.4 H8.5 Z M10.8,11.6 L12.6,13.05 L10.8,14.5 Z"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Uid="Shell_TrainAtlas" helpers:NavigationHelper.NavigateTo="RailGo.ViewModels.Pages.TrainAtlas.TrainAtlasViewModel">
+                    <NavigationViewItem.Icon>
+                        <PathIcon Data="F0 M3,4 C3,3.4 3.4,3 4,3 H20 C20.6,3 21,3.4 21,4 V20 C21,20.6 20.6,21 20,21 H4 C3.4,21 3,20.6 3,20 Z M5,5 V19 H19 V5 Z M7,16.5 L10,12.5 L12.5,15.5 L14.8,11.5 L17.8,16.5 Z M8.5,7.2 A1.6,1.6 0 1 0 8.5,10.4 A1.6,1.6 0 1 0 8.5,7.2 Z"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

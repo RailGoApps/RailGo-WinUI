@@ -35,6 +35,12 @@ public sealed partial class MainWindow : WindowEx
         dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         settings = new UISettings();
         settings.ColorValuesChanged += Settings_ColorValuesChanged;
+
+        if (Content is FrameworkElement rootElement)
+        {
+            rootElement.ActualThemeChanged += (_, _) => TitleBarHelper.UpdateTitleBar(rootElement.ActualTheme);
+            TitleBarHelper.UpdateTitleBar(rootElement.ActualTheme);
+        }
     }
 
     private void Tab_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args)

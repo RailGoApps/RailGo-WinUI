@@ -33,6 +33,27 @@ public sealed partial class Station_InformationPage : Page
         OpenMode = mode;
     }
 
+    /// <summary>
+    /// 让车站搜索框获得焦点，便于用户在弹窗中直接输入车站名
+    /// </summary>
+    public void FocusSearchBox()
+    {
+        if (StationSearchTextBox.IsLoaded)
+        {
+            StationSearchTextBox.Focus(FocusState.Programmatic);
+            return;
+        }
+
+        StationSearchTextBox.Loaded -= OnSearchBoxLoaded;
+        StationSearchTextBox.Loaded += OnSearchBoxLoaded;
+    }
+
+    private void OnSearchBoxLoaded(object sender, RoutedEventArgs e)
+    {
+        StationSearchTextBox.Loaded -= OnSearchBoxLoaded;
+        StationSearchTextBox.Focus(FocusState.Programmatic);
+    }
+
     private void StationDetailsBtn_Click(object sender, RoutedEventArgs e)
     {
         if (_item == null)
@@ -48,7 +69,7 @@ public sealed partial class Station_InformationPage : Page
             Header = _item.Name,
             Content = page,
             CanDrag = true,
-            IconSource = new FontIconSource() { Glyph = "\uF161" }
+            IconSource = new FontIconSource() { Glyph = "\uE707" }
         };
 
         MainWindow.Instance.MainTabView.TabItems.Add(tabViewItem);
@@ -72,7 +93,7 @@ public sealed partial class Station_InformationPage : Page
                 Header = _item.Name,
                 Content = page,
                 CanDrag = true,
-                IconSource = new FontIconSource() { Glyph = "\uF161" }
+                IconSource = new FontIconSource() { Glyph = "\uE707" }
             };
 
             MainWindow.Instance.MainTabView.TabItems.Add(tabViewItem);
@@ -93,6 +114,17 @@ public sealed partial class Station_InformationPage : Page
                 MessagerName = "StationToStation_SearchToStation",
                 Data = _item
             });
+        }
+    }
+
+    private void StationSearchTextBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key == global::Windows.System.VirtualKey.Enter)
+        {
+            if (ViewModel.SearchStationsCommand.CanExecute(null))
+            {
+                ViewModel.SearchStationsCommand.Execute(null);
+            }
         }
     }
 }

@@ -41,3 +41,13 @@ public class EmuContributorResponse
     [JsonProperty("data")]
     public List<string> Data { get; set; }
 }
+
+// 首页图片广告
+public class PicAdItem
+{
+    [JsonProperty("img")]
+    public string Img { get; set; }
+
+    [JsonProperty("jump")]
+    public string Jump { get; set; }
+}

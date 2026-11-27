@@ -10,18 +10,24 @@ public static class DefaultApiUrls
     private static readonly Dictionary<string, string> _urlMappings = new Dictionary<string, string>
     {
         { "QueryTrainPreselect", "https://data.railgo.zenglingkun.cn/api/train/preselect" },
-        { "QueryTrainQuery", "https://data.railgo.zenglingkun.cn/api/train/query" },
+        // 车次主数据 V2
+        { "QueryTrainQuery", "https://rg-api.zenglingkun.cn/api/v2/getTrainMain" },
         { "QueryStationToStationQuery", "https://data.railgo.zenglingkun.cn/api/train/sts_query" },
         { "QueryStationPreselect", "https://data.railgo.zenglingkun.cn/api/station/preselect" },
         { "QueryStationQuery", "https://data.railgo.zenglingkun.cn/api/station/query" },
-        { "QueryEmuAssignmentQuery", "https://delay.data.railgo.zenglingkun.cn/api/trainAssignment/queryEmu" },
-        // 正晚点查询改用 V2 API（原 delay 端点已不可用）
-        { "QueryTrainDelay", "https://rg-api.zenglingkun.cn/api/v2/getTrainDelay" },
-        // 检票口查询（保持原 12306 端点）
-        { "QueryPlatformInfo", "https://mobile.12306.cn/wxxcx/wechat/bigScreen/getExit" },
-        // 车站大屏改用 V2 API（原 screen 端点已不可用）
+        { "QueryEmuAssignmentQuery", "https://emu.railgo.zenglingkun.cn/api/car/info" },
+        // 正晚点查询 V2
+        { "QueryTrainDelay", "https://rg-api.zenglingkun.cn/api/v2/getTrainDelayAll" },
+        // 检票口、站台及出站口 V2
+        { "QueryPlatformInfo", "https://rg-api.zenglingkun.cn/api/v2/getExit" },
+        // 车站大屏 V2
         { "QueryGetBigScreenData", "https://rg-api.zenglingkun.cn/api/v2/getStationBigScreen" },
-        { "QueryEmuQuery", "https://api.rail.re/emu" },
+        // 动车组运行 V2
+        { "QueryEmuQuery", "https://emu.railgo.zenglingkun.cn/api/query" },
+        // 列车车厢图 V2
+        { "QueryCoachPic", "https://rg-api.zenglingkun.cn/api/v2/getCoachPic" },
+        // 列车图鉴
+        { "QueryTrainAtlas", "https://train.idcmoss.cn/api/model_search.php" },
         { "QueryDownloadEmuImage", "https://tp.railgo.zenglingkun.cn/api" }
     };
 

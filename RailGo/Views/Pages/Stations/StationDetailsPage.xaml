@@ -96,28 +96,46 @@
 
         <!-- 右侧内容区域 -->
         <Grid Grid.Column="2" Margin="10,0,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
             <Grid.Resources>
                 <DataTemplate x:Key="StationTrainsTemplate">
-                    <StackPanel Orientation="Horizontal">
-                        <HyperlinkButton Margin="10,10" Content="车次详细信息" Click="DetailBtnClick" x:Name="StationTrains_TrainInformation"/>
-                        <HyperlinkButton Margin="10,10" Content="始发站详细信息" Click="DetailBtnClick" x:Name="StationTrains_FromStation"/>
-                        <HyperlinkButton Margin="10,10" Content="终到站详细信息" Click="DetailBtnClick" x:Name="StationTrains_ToStation"/>
-                    </StackPanel>
+                    <Border Background="{ThemeResource RowDetailsBackgroundBrush}"
+                            BorderBrush="{ThemeResource RowDetailsBorderBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="4,2"
+                            HorizontalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal">
+                            <HyperlinkButton Margin="10,10" Content="车次详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="StationTrains_TrainInformation"/>
+                            <HyperlinkButton Margin="10,10" Content="始发站详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="StationTrains_FromStation"/>
+                            <HyperlinkButton Margin="10,10" Content="终到站详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="StationTrains_ToStation"/>
+                        </StackPanel>
+                    </Border>
                 </DataTemplate>
                 <DataTemplate x:Key="BigScreenDetails">
-                    <StackPanel Orientation="Horizontal">
-                        <HyperlinkButton Margin="10,10" Content="车次详细信息" Click="DetailBtnClick" x:Name="BigScreen_TrainInformation"/>
-                        <HyperlinkButton Margin="10,10" Content="始发站详细信息" Click="DetailBtnClick" x:Name="BigScreen_FromStation"/>
-                        <HyperlinkButton Margin="10,10" Content="终到站详细信息" Click="DetailBtnClick" x:Name="BigScreen_ToStation"/>
-                    </StackPanel>
+                    <Border Background="{ThemeResource RowDetailsBackgroundBrush}"
+                            BorderBrush="{ThemeResource RowDetailsBorderBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="4,2"
+                            HorizontalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal">
+                            <HyperlinkButton Margin="10,10" Content="车次详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="BigScreen_TrainInformation"/>
+                            <HyperlinkButton Margin="10,10" Content="始发站详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="BigScreen_FromStation"/>
+                            <HyperlinkButton Margin="10,10" Content="终到站详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="BigScreen_ToStation"/>
+                        </StackPanel>
+                    </Border>
                 </DataTemplate>
             </Grid.Resources>
             <!-- 车次信息页面 -->
             <controls:DataGrid x:Name="TrainsDataGrid"
+                   Grid.Row="0"
                    AutoGenerateColumns="False"
                    HorizontalAlignment="Stretch"
                    VerticalAlignment="Stretch"
-                   VerticalScrollBarVisibility="Auto"
+                   VerticalScrollBarVisibility="Visible"
+                   HorizontalScrollBarVisibility="Visible"
                    IsReadOnly="True"
                    RowDetailsTemplate="{StaticResource StationTrainsTemplate}"
                    RowDetailsVisibilityMode="VisibleWhenSelected"
@@ -130,14 +148,16 @@
                     <controls:DataGridTextColumn Binding="{Binding ToStation.Station}" Header="终到站"/>
                     <controls:DataGridTextColumn Binding="{Binding ArriveTime}" Header="到站时间"/>
                     <controls:DataGridTextColumn Binding="{Binding DepartTime}" Header="离站时间" />
-                    <controls:DataGridTextColumn Binding="{Binding StopTime}" Header="停站时间"/>
+                    <controls:DataGridTextColumn Binding="{Binding DisplayStopTime}" Header="停站时间"/>
                 </controls:DataGrid.Columns>
             </controls:DataGrid>
             <controls:DataGrid x:Name="BigScreenDataGrid"
+                   Grid.Row="0"
                    AutoGenerateColumns="False"
                    HorizontalAlignment="Stretch"
                    VerticalAlignment="Stretch"
-                   VerticalScrollBarVisibility="Auto"
+                   VerticalScrollBarVisibility="Visible"
+                   HorizontalScrollBarVisibility="Visible"
                    IsReadOnly="True"
                    RowDetailsTemplate="{StaticResource BigScreenDetails}"
                    RowDetailsVisibilityMode="VisibleWhenSelected"
@@ -148,11 +168,17 @@
                     <controls:DataGridTextColumn Binding="{Binding FromStation}" Header="始发站"/>
                     <controls:DataGridTextColumn Binding="{Binding ToStation}" Header="终到站"/>
                     <controls:DataGridTextColumn Binding="{Binding DisplayTime}" Header="发车时间"/>
-                    <controls:DataGridTextColumn Binding="{Binding DisplayWaitingRoom}" Header="候车室"/>
                     <controls:DataGridTextColumn Binding="{Binding DisplayTicketGate}" Header="检票口" />
                     <controls:DataGridTextColumn Binding="{Binding Status}" Header="状态" />
                 </controls:DataGrid.Columns>
             </controls:DataGrid>
+
+            <TextBlock Grid.Row="1"
+                       Text="↕ 可上下滚动　↔ 可左右滑动，查看完整时刻表"
+                       FontSize="12"
+                       Margin="0,6,0,0"
+                       HorizontalAlignment="Right"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </Grid>
 
         <!-- 加载指示器 -->

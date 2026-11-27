@@ -87,6 +87,8 @@ public partial class DataSources_CustomSourcesViewModel : ObservableRecipient
         
         new DataSourceMethod { Name = "QueryTrainDelay", Mode = "online", SourceName = "RailGoDefalt" },
         new DataSourceMethod { Name = "QueryPlatformInfo", Mode = "online", SourceName = "RailGoDefalt" },
+        new DataSourceMethod { Name = "QueryCoachPic", Mode = "online", SourceName = "RailGoDefalt" },
+        new DataSourceMethod { Name = "QueryTrainAtlas", Mode = "online", SourceName = "RailGoDefalt" },
         
         new DataSourceMethod { Name = "QueryDownloadEmuImage", Mode = "online", SourceName = "RailGoDefalt" }
     };

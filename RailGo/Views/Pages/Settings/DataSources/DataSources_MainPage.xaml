@@ -15,99 +15,107 @@
     </Page.Resources>
     <Grid>
         <ScrollViewer VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="ContentArea">
-                <StackPanel Margin="{StaticResource SmallTopBottomMargin}">
-                    <TextBlock Text="基本" Style="{ThemeResource SubtitleTextBlockStyle}" 
-                                   Margin="{StaticResource XSmallTopMargin}"/>
-                    <controls:SettingsCard 
-                                   Description="可以使用离线或在线模式，或者使用一个自定义组合（若启用且存在）"
-                                   Header="查询源"
-                                   HeaderIcon="{ui:FontIcon Glyph=&#xE8A1;}"
-                                   Margin="{StaticResource XSmallTopMargin}">
-                        <ComboBox
-                                x:Name="QueryModeComboBox"
-                                Margin="{StaticResource XSmallTopMargin}"
-                                FontSize="15"
-                                SelectedValuePath="Tag"
-                                SelectedValue="{x:Bind ViewModel.QueryMode, Mode=TwoWay}">
-                            <ComboBoxItem Content="在线（RailGo默认）" Tag="Online"/>
-                            <ComboBoxItem Content="离线（RailGo默认）" Tag="Offline" IsEnabled="{x:Bind ViewModel.IfOfflineAvailable, Mode=OneWay}"/>
-                            <ComboBoxItem Content="自定义数据源" Tag="Custom" IsEnabled="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay}"/>
-                        </ComboBox>
-                    </controls:SettingsCard>
-                    <InfoBar
+            <StackPanel x:Name="ContentArea" Margin="{StaticResource SmallTopBottomMargin}">
+                <TextBlock Text="数据源模式" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="{StaticResource XSmallTopMargin}"/>
+
+                <!-- 在线模式 -->
+                <controls:SettingsCard
+                    Header="在线模式"
+                    Description="使用时需要联网，离线状态下不可用。数据最新，但有可能不全。"
+                    HeaderIcon="{ui:FontIcon Glyph=&#xE701;}"
+                    Margin="{StaticResource XSmallTopMargin}">
+                    <RadioButton
+                        x:Name="OnlineModeRadio"
+                        Content="使用在线模式"
+                        IsChecked="{x:Bind ViewModel.IsOnlineMode, Mode=TwoWay}"
+                        Checked="OnlineModeRadio_Checked"/>
+                </controls:SettingsCard>
+
+                <!-- 离线模式 -->
+                <controls:SettingsCard
+                    Header="离线模式"
+                    Description="无网状态下可以使用，数据较全，更新缓慢。"
+                    HeaderIcon="{ui:FontIcon Glyph=&#xEDA2;}"
+                    Margin="{StaticResource XSmallTopMargin}">
+                    <StackPanel Spacing="12">
+                        <RadioButton
+                            x:Name="OfflineModeRadio"
+                            Content="使用离线模式"
+                            IsChecked="{x:Bind ViewModel.IsOfflineMode, Mode=TwoWay}"
+                            Checked="OfflineModeRadio_Checked"/>
+
+                        <!-- 离线模式下才显示的内容 -->
+                        <StackPanel Visibility="{x:Bind ViewModel.IsOfflineMode, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" Spacing="12">
+                            <InfoBar
                                 IsOpen="True"
                                 IsClosable="False"
-                                Margin="{StaticResource XSmallTopMargin}"
-                                Severity="Informational"
-                                Title="当前数据源"
-                                Message="{x:Bind ViewModel.QuerySource, Mode=OneWay}" />
-                    <TextBlock Text="离线在线查询模式互补" Style="{ThemeResource SubtitleTextBlockStyle}" 
-                                   Margin="{StaticResource MediumTopMargin}"/>
-                    <InfoBar
-                        IsOpen="True"
-                        Severity="Warning"
-                        Title="警告"
-                        IsClosable="False"
-                        Margin="{StaticResource XSmallTopMargin}"
-                        Visibility="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-                        Message="本功能仅支持使用RailGoDefalt数据源进行补充。即使你选择了自定义的数据源，数据互补时还是会使用RailGoDefalt作为数据源。请自行思考是否要开启本功能" />
-                    <controls:SettingsCard Description="若开启，则使用离线模式时，实时数据等没有离线数据内容会使用在线查询进行补齐。"
-                                   Header="离线查询时允许使用在线模式补全数据"
-                                   HeaderIcon="{ui:FontIcon Glyph=&#xE88A;}"
-                                   Margin="{StaticResource XSmallTopMargin}">
-                        <ToggleSwitch OffContent="Off" OnContent="On" IsOn="{x:Bind ViewModel.IfCompleteOnOfflineUnsupport, Mode=TwoWay}" />
-                    </controls:SettingsCard>
-                    <controls:SettingsCard Description="若开启，则使用在线模式查询失败时，将自动使用离线数据进行查询。实时数据等没有离线数据内容仍旧会尝试使用在线查询，直到失败。"
-                                   Header="在线查询失败时使用离线模式自动完成查询"
-                                   HeaderIcon="{ui:FontIcon Glyph=&#xE791;}"
-                                   Margin="{StaticResource XSmallTopMargin}">
-                        <ToggleSwitch OffContent="Off" OnContent="On" IsOn="{x:Bind ViewModel.IfCompleteOnOnlineFailed, Mode=TwoWay}" />
-                    </controls:SettingsCard>
-                    <TextBlock Text="自定义数据源" Style="{ThemeResource SubtitleTextBlockStyle}" 
-                                   Margin="{StaticResource MediumTopMargin}"/>
-                    <controls:SettingsCard Description="若开启，则允许使用任意位置的受支持的数据源作为查询的数据源。可能需要重新打开面板以查看所有的设置项。"
-                                   Header="启用自定义数据源"
-                                   HeaderIcon="{ui:FontIcon Glyph=&#xF156;}"
-                                   Margin="{StaticResource XSmallTopMargin}">
-                        <ToggleSwitch OffContent="Off" OnContent="On" IsOn="{x:Bind ViewModel.AllowCustomSource, Mode=TwoWay}" Toggled="AllowCustomSourceToggle_Toggled"/>
-                    </controls:SettingsCard>
-                    <controls:SettingsCard 
-                                   Description="选择一个已经完成的自定义数据源，在“查询源”选择为“自定义数据源”时使用它。"
-                                   Header="自定义查询源设定"
-                                   HeaderIcon="{ui:FontIcon Glyph=&#xE71D;}"
-                                   Margin="{StaticResource XSmallTopMargin}"
-                                   IsEnabled="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay}"
-                                   Visibility="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <ComboBox
-                                x:Name="ThirdPartyQueryComboBox"
-                                Margin="{StaticResource XSmallTopMargin}"
-                                ItemsSource="{x:Bind ViewModel.DataSourceGroups, Mode=OneWay}"
-                                SelectedValue="{x:Bind ViewModel.SelectedDataSourceGroup, Mode=TwoWay}"
-                                FontSize="15">
-                        </ComboBox>
-                    </controls:SettingsCard>
-                </StackPanel>
+                                Severity="Warning"
+                                Title="提示"
+                                Message="动车组图片及列车图鉴等在线功能将无法使用。"/>
+
+                            <controls:SettingsCard
+                                Header="离线数据库"
+                                Description="选择本地 railgo.sqlite 数据库文件"
+                                HeaderIcon="{ui:FontIcon Glyph=&#xE8A1;}">
+                                <StackPanel Spacing="8">
+                                    <TextBox
+                                        x:Name="DatabasePathTextBox"
+                                        PlaceholderText="未选择数据库文件"
+                                        Text="{x:Bind ViewModel.OfflineDatabasePath, Mode=TwoWay}"
+                                        IsReadOnly="True"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="选择文件" Click="SelectDatabaseFile_Click" Style="{StaticResource AccentButtonStyle}"/>
+                                        <Button Content="下载离线数据库" Click="DownloadDatabase_Click"/>
+                                    </StackPanel>
+                                    <InfoBar
+                                        IsOpen="True"
+                                        IsClosable="False"
+                                        Severity="Informational"
+                                        Title="提示"
+                                        Message="下载时请选择更新日期最近的版本，推荐一个月左右检查一次数据库版本更新。"
+                                        Visibility="{x:Bind ViewModel.IsOfflineMode, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </StackPanel>
+                            </controls:SettingsCard>
+                        </StackPanel>
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <!-- 在线模式下显示下载按钮 -->
+                <controls:SettingsCard
+                    Header="下载离线数据库"
+                    Description="如需使用离线模式，请先下载离线数据库。"
+                    HeaderIcon="{ui:FontIcon Glyph=&#xE896;}"
+                    Margin="{StaticResource XSmallTopMargin}"
+                    Visibility="{x:Bind ViewModel.IsOnlineMode, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel Spacing="8">
+                        <Button Content="前往下载" Click="DownloadDatabase_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left"/>
+                        <InfoBar
+                            IsOpen="True"
+                            IsClosable="False"
+                            Severity="Informational"
+                            Title="提示"
+                            Message="下载时请选择更新日期最近的版本，推荐一个月左右检查一次数据库版本更新。"/>
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <InfoBar
+                    IsOpen="True"
+                    IsClosable="False"
+                    Margin="{StaticResource XSmallTopMargin}"
+                    Severity="Informational"
+                    Title="当前模式"
+                    Message="{x:Bind ViewModel.QuerySource, Mode=OneWay}"/>
             </StackPanel>
         </ScrollViewer>
+
+        <!-- 切换离线模式确认对话框 -->
         <ContentDialog
-            x:Name="OpenCustomSourcesDialog"
-            Title="警告"
-            PrimaryButtonText="我已知晓"
+            x:Name="SwitchToOfflineDialog"
+            Title="确认切换"
+            PrimaryButtonText="确认切换"
             CloseButtonText="取消"
             DefaultButton="Close">
-            <StackPanel>
-                <RichTextBlock>
-                    <Paragraph>你知道你在做什么吗？</Paragraph>
-                    <Paragraph Foreground="Red">
-                        <Bold>你所使用的第三方数据源在经过验证之前，数据准确性无法得到保证。</Bold>
-                    </Paragraph>
-                    <Paragraph>
-                        <Bold>继续开启本功能，则代表你确定自行承担由错误的数据源所导致的任何问题的责任，这些责任将于开发组无任何关系。</Bold>
-                    </Paragraph>
-                    <Paragraph>此功能的可行性仍在考究中，非必要情况下请保持其关闭。</Paragraph>
-                </RichTextBlock>
-            </StackPanel>
+            <TextBlock Text="即将切换到离线模式，动车组图片及列车图鉴等在线功能将无法使用，请确认切换。" TextWrapping="WrapWholeWords"/>
         </ContentDialog>
     </Grid>
 </Page>

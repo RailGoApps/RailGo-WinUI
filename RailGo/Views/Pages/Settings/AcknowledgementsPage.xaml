@@ -1,0 +1,127 @@
+<Page
+    x:Class="RailGo.Views.Pages.Settings.AcknowledgementsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:settings="using:RailGo.Core.Models.Settings"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <!-- 开发 / 特别鸣谢：头像 + 昵称 -->
+        <DataTemplate x:Key="PersonTemplate" x:DataType="settings:CreditPerson">
+            <StackPanel Width="128" Margin="4,6" Spacing="6" HorizontalAlignment="Center">
+                <Ellipse Width="72" Height="72">
+                    <Ellipse.Fill>
+                        <ImageBrush ImageSource="{x:Bind Avatar}" Stretch="UniformToFill"/>
+                    </Ellipse.Fill>
+                </Ellipse>
+                <TextBlock Text="{x:Bind Name}"
+                           FontSize="13"
+                           TextAlignment="Center"
+                           TextWrapping="WrapWholeWords"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- 赞助者 / 图片贡献者：仅头像圆点 -->
+        <DataTemplate x:Key="AvatarTemplate" x:DataType="settings:CreditPerson">
+            <Ellipse Width="48" Height="48" Margin="6">
+                <Ellipse.Fill>
+                    <ImageBrush ImageSource="{x:Bind Avatar}" Stretch="UniformToFill"/>
+                </Ellipse.Fill>
+            </Ellipse>
+        </DataTemplate>
+
+        <DataTemplate x:Key="DataSourceTemplate" x:DataType="settings:DataSourceCredit">
+            <Grid Padding="0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{x:Bind Name}" TextWrapping="WrapWholeWords"/>
+                <TextBlock Grid.Column="1"
+                           Text="{x:Bind Website}"
+                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                           TextWrapping="WrapWholeWords"/>
+                <TextBlock Grid.Column="2"
+                           Text="{x:Bind Features}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="WrapWholeWords"/>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer VerticalScrollMode="Auto" VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="1020" HorizontalAlignment="Left" Margin="28,20,28,32" Spacing="4">
+            <TextBlock Text="鸣谢" Style="{ThemeResource TitleTextBlockStyle}"/>
+            <TextBlock Text="RailGo 的成长离不开每一位开发者、贡献者与赞助者的支持，感谢你们！"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,2,0,4"/>
+
+            <TextBlock Text="开发" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,16,0,4"/>
+            <ItemsRepeater x:Name="DevelopersRepeater" ItemTemplate="{StaticResource PersonTemplate}">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout MinItemWidth="132"
+                                       MinItemHeight="128"
+                                       MinRowSpacing="8"
+                                       MinColumnSpacing="8"/>
+                </ItemsRepeater.Layout>
+            </ItemsRepeater>
+
+            <TextBlock Text="特别鸣谢" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,20,0,4"/>
+            <ItemsRepeater x:Name="SpecialThanksRepeater" ItemTemplate="{StaticResource PersonTemplate}">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout MinItemWidth="132"
+                                       MinItemHeight="128"
+                                       MinRowSpacing="8"
+                                       MinColumnSpacing="8"/>
+                </ItemsRepeater.Layout>
+            </ItemsRepeater>
+
+            <TextBlock Text="服务器赞助者" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,20,0,4"/>
+            <ItemsRepeater x:Name="ServerSponsorRepeater" ItemTemplate="{StaticResource AvatarTemplate}">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout MinItemWidth="60"
+                                       MinItemHeight="60"
+                                       MinRowSpacing="4"
+                                       MinColumnSpacing="4"/>
+                </ItemsRepeater.Layout>
+            </ItemsRepeater>
+
+            <TextBlock Text="动车组图片贡献者" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,20,0,4"/>
+            <ItemsRepeater x:Name="PicContributorsRepeater" ItemTemplate="{StaticResource AvatarTemplate}">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout MinItemWidth="60"
+                                       MinItemHeight="60"
+                                       MinRowSpacing="4"
+                                       MinColumnSpacing="4"/>
+                </ItemsRepeater.Layout>
+            </ItemsRepeater>
+            <TextBlock Text="欢迎在 tp.railgo.zenglingkun.cn 提交车图。"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       FontSize="12"
+                       Margin="0,6,0,0"/>
+
+            <TextBlock Text="数据源" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,20,0,4"/>
+            <Grid Padding="0,4" BorderThickness="0,0,0,1"
+                  BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="数据源" FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="1" Text="官网" FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="2" Text="相关功能" FontWeight="SemiBold"/>
+            </Grid>
+            <ItemsControl x:Name="DataSourcesList" ItemTemplate="{StaticResource DataSourceTemplate}"/>
+
+            <TextBlock Text="AZ Studio 版权所有"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       FontSize="12"
+                       Margin="0,24,0,0"/>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

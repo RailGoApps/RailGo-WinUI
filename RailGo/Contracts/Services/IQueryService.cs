@@ -11,7 +11,7 @@ public interface IQueryService
 {
     // 车次查询接口
     Task<ObservableCollection<TrainPreselectResult>> QueryTrainPreselectAsync(string keyword);
-    Task<Train> QueryTrainQueryAsync(string trainNumber);
+    Task<Train> QueryTrainQueryAsync(string trainNumber, string date = null);
     Task<ObservableCollection<TrainRunInfo>> QueryStationToStationQueryAsync(string from, string to, string date, bool city);
 
     // 车站查询接口
@@ -21,12 +21,15 @@ public interface IQueryService
 
     // 动车组查询接口
     Task<ObservableCollection<EmuOperation>> QueryEmuQueryAsync(string type, string keyword);
-    Task<ObservableCollection<EmuAssignment>> QueryEmuAssignmentQueryAsync(string type, string keyword, int cursor = 0, int count = 15);
+    Task<EmuCarInfo> QueryEmuCarInfoAsync(string emuId);
 
     // 实时数据接口
-    Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string date, string trainNumber, string fromStation, string toStation);
-    Task<PlatformInfo> QueryPlatformInfoAsync(string stationCode, string trainDate, string type, string stationTrainCode);
+    Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string trainNumber, string date);
+    Task<StationExitInfo> QueryPlatformInfoAsync(string trainNumber, string stationTelecode, string date, string kind);
+    Task<CoachPicInfo> QueryCoachPicAsync(string trainNumber);
 
     // 其他接口
     Task<byte[]> QueryDownloadEmuImageAsync(string trainModel);
+    Task<byte[]> QueryDownloadImageAsync(string url);
+    Task<TrainAtlasResponse> QueryTrainAtlasAsync(string keyword, int page, int perPage);
 }

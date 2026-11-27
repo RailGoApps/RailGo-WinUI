@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 using RailGo.Contracts.Services;
+using RailGo.Core.Helpers;
 using RailGo.Core.Models;
 using RailGo.Core.Models.QueryDatas;
 using RailGo.Core.Models.Settings;
@@ -32,6 +33,12 @@ public class QueryService : IQueryService
         {
             var GroupName = await _dataSourceService.GetSelectedDataSourceAsync();
             method = await _dataSourceService.GetDataSourceMethodAsync(GroupName, MethodName);
+        }
+
+        // 旧的自定义数据源没有配置新增接口时，回退到默认在线接口
+        if (method == null || string.IsNullOrEmpty(method.SourceName))
+        {
+            method = new DataSourceMethod { Mode = "Online", SourceName = "RailGoDefalt", Name = MethodName };
         }
         else if (QueryModeSelcted == "Offline")
         {
@@ -133,22 +140,23 @@ public class QueryService : IQueryService
     /// <summary>
     /// 车次详情查询
     /// </summary>
-    public async Task<Train> QueryTrainQueryAsync(string trainNumber)
+    public async Task<Train> QueryTrainQueryAsync(string trainNumber, string date = null)
     {
+        date ??= DateTime.Now.ToString("yyyyMMdd");
         var GotPath = await GetPath("QueryTrainQuery");
         var CanRetryWithOffline = await _dataSourceService.GetOnlineFallbackToOfflineAsync();
         if (!GotPath.IsOfflineMode && CanRetryWithOffline)
         {
             try
             {
-                return await ApiService.TrainQueryAsync(GotPath.IsOfflineMode, GotPath.Path, trainNumber);
+                return await ApiService.TrainQueryAsync(GotPath.IsOfflineMode, GotPath.Path, trainNumber, date);
             }
             catch (Exception ex)
             {
                 try
                 {
                     var offlineDbPath = GetDatabasePath();
-                    return await ApiService.TrainQueryAsync(true, offlineDbPath, trainNumber);
+                    return await ApiService.TrainQueryAsync(true, offlineDbPath, trainNumber, date);
                 }
                 catch
                 {
@@ -156,7 +164,7 @@ public class QueryService : IQueryService
                 }
             }
         }
-        return await ApiService.TrainQueryAsync(GotPath.IsOfflineMode, GotPath.Path, trainNumber);
+        return await ApiService.TrainQueryAsync(GotPath.IsOfflineMode, GotPath.Path, trainNumber, date);
     }
 
     /// <summary>
@@ -283,16 +291,16 @@ public class QueryService : IQueryService
     }
 
     /// <summary>
-    /// 动车组配属查询
+    /// 动车组配属信息查询
     /// </summary>
-    public async Task<ObservableCollection<EmuAssignment>> QueryEmuAssignmentQueryAsync(string type, string keyword, int cursor = 0, int count = 15)
+    public async Task<EmuCarInfo> QueryEmuCarInfoAsync(string emuId)
     {
         var GotPath = await GetPathWithCompletement("QueryEmuAssignmentQuery");
         if (!GotPath.IsOfflineMode)
         {
-            return await ApiService.EmuAssignmentQueryAsync(GotPath.IsOfflineMode, GotPath.Path, type, keyword, cursor, count);
+            return await ApiService.EmuCarInfoAsync(GotPath.IsOfflineMode, GotPath.Path, emuId);
         }
-        return new();
+        return null;
     }
 
     #endregion
@@ -302,27 +310,48 @@ public class QueryService : IQueryService
     /// <summary>
     /// 正晚点查询
     /// </summary>
-    public async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string date, string trainNumber, string fromStation, string toStation)
+    public async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(string trainNumber, string date)
     {
         var GotPath = await GetPathWithCompletement("QueryTrainDelay");
         if (!GotPath.IsOfflineMode)
         {
-            return await ApiService.QueryTrainDelayAsync(GotPath.IsOfflineMode, GotPath.Path, date, trainNumber, fromStation, toStation);
+            return await ApiService.QueryTrainDelayAsync(GotPath.IsOfflineMode, GotPath.Path, trainNumber, date);
         }
         return new();
     }
 
     /// <summary>
-    /// 停台检票口查询
+    /// 检票口、站台及出站口查询
     /// </summary>
-    public async Task<PlatformInfo> QueryPlatformInfoAsync(string stationCode, string trainDate, string type, string stationTrainCode)
+    public async Task<StationExitInfo> QueryPlatformInfoAsync(string trainNumber, string stationTelecode, string date, string kind)
     {
         var GotPath = await GetPathWithCompletement("QueryPlatformInfo");
         if (!GotPath.IsOfflineMode)
         {
-            return await ApiService.QueryPlatformInfoAsync(GotPath.IsOfflineMode, GotPath.Path, stationCode, trainDate, type, stationTrainCode);
+            return await ApiService.QueryPlatformInfoAsync(GotPath.IsOfflineMode, GotPath.Path, trainNumber, stationTelecode, date, kind);
         }
-        return new();
+        return null;
+    }
+
+    /// <summary>
+    /// 列车车厢图查询
+    /// </summary>
+    public async Task<CoachPicInfo> QueryCoachPicAsync(string trainNumber)
+    {
+        var GotPath = await GetPathWithCompletement("QueryCoachPic");
+        if (!GotPath.IsOfflineMode)
+        {
+            return await ApiService.QueryCoachPicAsync(GotPath.IsOfflineMode, GotPath.Path, trainNumber);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 下载图片
+    /// </summary>
+    public async Task<byte[]> QueryDownloadImageAsync(string url)
+    {
+        return await HttpService.DownloadFileAsync(url);
     }
 
     #endregion
@@ -336,6 +365,19 @@ public class QueryService : IQueryService
     {
         var GotPath = await GetPathWithCompletement("QueryDownloadEmuImage");
         return await ApiService.DownloadEmuImageAsync(GotPath.IsOfflineMode, GotPath.Path, trainModel);
+    }
+
+    /// <summary>
+    /// 列车图鉴搜索
+    /// </summary>
+    public async Task<TrainAtlasResponse> QueryTrainAtlasAsync(string keyword, int page, int perPage)
+    {
+        var GotPath = await GetPathWithCompletement("QueryTrainAtlas");
+        if (!GotPath.IsOfflineMode)
+        {
+            return await ApiService.QueryTrainAtlasAsync(GotPath.IsOfflineMode, GotPath.Path, keyword, page, perPage);
+        }
+        return null;
     }
 
     #endregion

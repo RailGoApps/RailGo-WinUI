@@ -64,7 +64,7 @@ public class ApiService
     /// <summary>
     /// 车次详情查询
     /// </summary>
-    public static async Task<Train> TrainQueryAsync(bool isOfflineMode, string urlOrDbPath, string trainNumber)
+    public static async Task<Train> TrainQueryAsync(bool isOfflineMode, string urlOrDbPath, string trainNumber, string date)
     {
         if (isOfflineMode)
         {
@@ -74,7 +74,7 @@ public class ApiService
         }
         else
         {
-            return await OnlineApiService.TrainQueryAsync(trainNumber, urlOrDbPath);
+            return await OnlineApiService.TrainQueryAsync(trainNumber, date, urlOrDbPath);
         }
     }
 
@@ -162,19 +162,15 @@ public class ApiService
     }
 
     /// <summary>
-    /// 动车组配属查询
+    /// 动车组配属信息查询
     /// </summary>
-    public static async Task<ObservableCollection<EmuAssignment>> EmuAssignmentQueryAsync(
-        bool isOfflineMode, string urlOrDbPath, string type, string keyword, int cursor = 0, int count = 15)
+    public static async Task<EmuCarInfo> EmuCarInfoAsync(bool isOfflineMode, string urlOrDbPath, string emuId)
     {
         if (!isOfflineMode)
         {
-            return await OnlineApiService.EmuAssignmentQueryAsync(type, keyword, cursor, count, urlOrDbPath);
+            return await OnlineApiService.EmuCarInfoAsync(emuId, urlOrDbPath);
         }
-        else
-        {
-            return null;
-        }
+        return null;
     }
 
     #endregion
@@ -184,25 +180,36 @@ public class ApiService
     /// <summary>
     /// 正晚点查询
     /// </summary>
-    public static async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(bool isOfflineMode, string urlOrDbPath, string date, string trainNumber,
-        string fromStation, string toStation)
+    public static async Task<ObservableCollection<DelayInfo>> QueryTrainDelayAsync(bool isOfflineMode, string urlOrDbPath, string trainNumber, string date)
     {
         if (!isOfflineMode)
         {
-            return await OnlineApiService.QueryTrainDelayAsync(date, trainNumber, fromStation, toStation, urlOrDbPath);
+            return await OnlineApiService.QueryTrainDelayAsync(trainNumber, date, urlOrDbPath);
         }
         return null;
     }
 
     /// <summary>
-    /// 停台检票口查询
+    /// 检票口、站台及出站口查询
     /// </summary>
-    public static async Task<PlatformInfo> QueryPlatformInfoAsync(bool isOfflineMode, string urlOrDbPath, string stationCode, string trainDate,
-        string type, string stationTrainCode)
+    public static async Task<StationExitInfo> QueryPlatformInfoAsync(bool isOfflineMode, string urlOrDbPath, string trainNumber,
+        string stationTelecode, string date, string kind)
     {
         if (!isOfflineMode)
         {
-            return await OnlineApiService.QueryPlatformInfoAsync(stationCode, trainDate, type, stationTrainCode, urlOrDbPath);
+            return await OnlineApiService.QueryPlatformInfoAsync(trainNumber, stationTelecode, date, kind, urlOrDbPath);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 列车车厢图查询
+    /// </summary>
+    public static async Task<CoachPicInfo> QueryCoachPicAsync(bool isOfflineMode, string urlOrDbPath, string trainNumber)
+    {
+        if (!isOfflineMode)
+        {
+            return await OnlineApiService.QueryCoachPicAsync(trainNumber, urlOrDbPath);
         }
         return null;
     }
@@ -210,6 +217,18 @@ public class ApiService
     #endregion
 
     #region 其他接口
+
+    /// <summary>
+    /// 列车图鉴搜索
+    /// </summary>
+    public static async Task<TrainAtlasResponse> QueryTrainAtlasAsync(bool isOfflineMode, string urlOrDbPath, string keyword, int page, int perPage)
+    {
+        if (!isOfflineMode)
+        {
+            return await OnlineApiService.QueryTrainAtlasAsync(keyword, page, perPage, urlOrDbPath);
+        }
+        return null;
+    }
 
     /// <summary>
     /// 下载动车组图片

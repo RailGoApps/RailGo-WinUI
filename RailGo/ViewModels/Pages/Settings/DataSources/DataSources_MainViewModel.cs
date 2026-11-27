@@ -1,9 +1,6 @@
-﻿using System.Collections.ObjectModel;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using RailGo.Contracts.Services;
-using RailGo.Core.Query.Online;
 
 namespace RailGo.ViewModels.Pages.Settings.DataSources;
 
@@ -15,28 +12,19 @@ public partial class DataSources_MainViewModel : ObservableObject
     private string? _queryMode;
 
     [ObservableProperty]
-    private bool _isLoading;
+    private bool isLoading;
 
     [ObservableProperty]
-    private bool ifOfflineAvailable;
+    private bool isOnlineMode = true;
 
     [ObservableProperty]
-    private string querySource;
+    private bool isOfflineMode;
 
     [ObservableProperty]
-    private bool allowCustomSource;
+    private string querySource = "在线（RailGo默认）";
 
     [ObservableProperty]
-    private ObservableCollection<string>? dataSourceGroups;
-
-    [ObservableProperty]
-    private string? selectedDataSourceGroup;
-
-    [ObservableProperty]
-    private bool ifCompleteOnOfflineUnsupport;
-
-    [ObservableProperty]
-    private bool ifCompleteOnOnlineFailed;
+    private string offlineDatabasePath;
 
     public DataSources_MainViewModel(IDataSourceService dataSourceService)
     {
@@ -50,11 +38,20 @@ public partial class DataSources_MainViewModel : ObservableObject
         {
             IsLoading = true;
             QueryMode = await _dataSourceService.GetQueryModeAsync();
-            AllowCustomSource = await _dataSourceService.GetIfAllowCustomSourceAsync();
-            DataSourceGroups = await _dataSourceService.GetAllGroupNamesAsync();
-            SelectedDataSourceGroup = await _dataSourceService.GetSelectedDataSourceAsync();
-            IfCompleteOnOfflineUnsupport = await _dataSourceService.GetOfflineComplementOnlineAsync();
-            IfCompleteOnOnlineFailed = await _dataSourceService.GetOnlineFallbackToOfflineAsync();
+
+            if (QueryMode == "Offline")
+            {
+                IsOfflineMode = true;
+                IsOnlineMode = false;
+            }
+            else
+            {
+                IsOnlineMode = true;
+                IsOfflineMode = false;
+            }
+
+            // 读取已保存的离线数据库路径
+            OfflineDatabasePath = await _dataSourceService.GetCustomDataSourceAddressAsync() ?? string.Empty;
             UpdateQuerySourceDisplay();
         }
         finally
@@ -65,83 +62,46 @@ public partial class DataSources_MainViewModel : ObservableObject
 
     private void UpdateQuerySourceDisplay()
     {
-        if (QueryMode == "Offline")
+        if (IsOfflineMode)
         {
             QuerySource = "离线（RailGo默认）";
         }
-        else if (QueryMode == "Online")
+        else
         {
             QuerySource = "在线（RailGo默认）";
         }
-        else if (QueryMode == "Custom")
-        {
-            if (AllowCustomSource)
-            {
-                if (!string.IsNullOrEmpty(SelectedDataSourceGroup))
-                {
-                    QuerySource = $"自定义数据源：{SelectedDataSourceGroup}";
-                }
-                else
-                {
-                    QuerySource = "自定义数据源：未选择";
-                }
-            }
-            else
-            {
-                QuerySource = "在线（RailGo默认）(选择的查询源被禁用，使用默认）";
-            }
-        }
-        else
-        {
-            QuerySource = "Unkown";
-        }
     }
 
-    partial void OnQueryModeChanged(string? value)
+    /// <summary>
+    /// 切换到在线模式
+    /// </summary>
+    public async Task SwitchToOnlineModeAsync()
     {
-        if (!IsLoading && !string.IsNullOrEmpty(value))
-        {
-            _ = _dataSourceService.SetQueryModeAsync(value);
-            UpdateQuerySourceDisplay();
-        }
+        IsOnlineMode = true;
+        IsOfflineMode = false;
+        QueryMode = "Online";
+        await _dataSourceService.SetQueryModeAsync("Online");
+        UpdateQuerySourceDisplay();
     }
 
-    partial void OnAllowCustomSourceChanged(bool value)
+    /// <summary>
+    /// 切换到离线模式（调用前应先确认）
+    /// </summary>
+    public async Task SwitchToOfflineModeAsync()
     {
-        if (!IsLoading)
-        {
-            _ = _dataSourceService.SetIfAllowCustomSourceAsync(value);
-            if (QueryMode == "Custom")
-            {
-                _ = _dataSourceService.SetQueryModeAsync("Online");
-                QueryMode = "Online";
-            }
-            UpdateQuerySourceDisplay();
-        }
+        IsOfflineMode = true;
+        IsOnlineMode = false;
+        QueryMode = "Offline";
+        await _dataSourceService.SetQueryModeAsync("Offline");
+        UpdateQuerySourceDisplay();
     }
 
-    partial void OnSelectedDataSourceGroupChanged(string? value)
+    /// <summary>
+    /// 保存离线数据库路径
+    /// </summary>
+    public async Task SetOfflineDatabasePathAsync(string path)
     {
-        if (!IsLoading && !string.IsNullOrEmpty(value))
-        {
-            _ = _dataSourceService.SetSelectedDataSourceAsync(value);
-            UpdateQuerySourceDisplay();
-        }
-    }
-
-    partial void OnIfCompleteOnOfflineUnsupportChanged(bool value)
-    {
-        if (!IsLoading && value != null)
-        {
-            _ = _dataSourceService.SetOfflineComplementOnlineAsync(value);
-        }
-    }
-
-    partial void OnIfCompleteOnOnlineFailedChanged(bool value)
-    {
-        if (!IsLoading && value != null)
-        {
-            _ = _dataSourceService.SetOnlineFallbackToOfflineAsync(value);
-        }
+        OfflineDatabasePath = path;
+        await _dataSourceService.SetCustomDataSourceAddressAsync(path);
     }
 }

@@ -2,14 +2,12 @@
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
-using RailGo.Core.Models;
+using Microsoft.UI.Xaml.Controls;
+using RailGo.Contracts.Services;
 using RailGo.Core.Models.QueryDatas;
 using RailGo.Services;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 using RailGo.ViewModels.Pages.Shell;
+using RailGo.ViewModels.Pages.TrainAtlas;
 
 namespace RailGo.ViewModels.Pages.TrainEmus;
 
@@ -24,24 +22,19 @@ public partial class EMU_RoutingDetailsViewModel : ObservableRecipient
     private bool isLoading;
 
     [ObservableProperty]
-    private bool ifCanDownload = false;
-
-    [ObservableProperty]
     private string trainEmuModel;
 
     [ObservableProperty]
     private string trainEmuCode;
 
     [ObservableProperty]
-    private string trainBelong;
+    private string currentEmuNo;
 
     [ObservableProperty]
-    private string trainMaker;
+    private string trainBelong = "未知";
 
     [ObservableProperty]
-    private ImageSource emuImageSource;
-
-    private byte[] imageBytes;
+    private string trainMaker = "未知";
 
     public EMU_RoutingDetailsViewModel()
     {
@@ -50,6 +43,11 @@ public partial class EMU_RoutingDetailsViewModel : ObservableRecipient
     [RelayCommand]
     private async Task SearchEmuDetailsAsync(EmuOperation DataFromLast)
     {
+        if (DataFromLast == null)
+        {
+            return;
+        }
+
         try
         {
             IsLoading = true;
@@ -57,28 +55,61 @@ public partial class EMU_RoutingDetailsViewModel : ObservableRecipient
 
             TrainEmuModel = DataFromLast.EmuNoModel;
             TrainEmuCode = DataFromLast.EmuNoCode;
+            CurrentEmuNo = DataFromLast.EmuNo;
 
-            // 调用 API 进行搜索
             var queryService = App.GetService<QueryService>();
-            var TrainEmuInfosTask = queryService.QueryEmuQueryAsync("emu", DataFromLast.EmuNo);
-            var TrainEmuFromWhereAllTask = queryService.QueryEmuAssignmentQueryAsync("trainSerialNumber", DataFromLast.EmuNoCode);
-            var imageBytesTask = queryService.QueryDownloadEmuImageAsync(DataFromLast.EmuNoModel);
-            await Task.WhenAll(TrainEmuInfosTask, TrainEmuFromWhereAllTask, imageBytesTask);
-            TrainEmuInfos = TrainEmuInfosTask.Result;
-            var TrainEmuFromWhereAll = TrainEmuFromWhereAllTask.Result;
-            imageBytes = imageBytesTask.Result;
+            var trainCodes = GetTrainCodes(DataFromLast);
 
-            var targetEmu = FilterByTrainModel(TrainEmuFromWhereAll, DataFromLast.EmuNoModel);
-            TrainBelong = $"{targetEmu.Bureau ?? "未知"} {targetEmu.Department ?? "未知"}段";
-            TrainMaker = $"{targetEmu.Manufacturer ?? "未知"} 制造";
-
-            if (imageBytes != null && imageBytes.Length > 0)
+            // 重联车组（如 CR400BF-5076/5033）不能直接把 "A/B" 作为关键字查询，
+            // 需要对每个车组号分别查询后合并去重。
+            var merged = new List<EmuOperation>();
+            var keys = new HashSet<string>();
+            foreach (var trainCode in trainCodes)
             {
-                using var stream = new MemoryStream(imageBytes);
-                var bitmapImage = new BitmapImage();
-                IfCanDownload = true;
-                await bitmapImage.SetSourceAsync(stream.AsRandomAccessStream());
-                EmuImageSource = bitmapImage;
+                ObservableCollection<EmuOperation> result = null;
+                try
+                {
+                    result = await queryService.QueryEmuQueryAsync("emu", trainCode);
+                }
+                catch (Exception ex)
+                {
+                    Trace.WriteLine($"查询车组 {trainCode} 交路失败: {ex.Message}");
+                }
+
+                if (result == null)
+                {
+                    continue;
+                }
+
+                foreach (var operation in result)
+                {
+                    var key = $"{operation.TrainNo}|{operation.Date}|{operation.EmuNo}";
+                    if (keys.Add(key))
+                    {
+                        merged.Add(operation);
+                    }
+                }
+            }
+
+            TrainEmuInfos = new ObservableCollection<EmuOperation>(
+                merged.OrderByDescending(x => x.Date).ThenByDescending(x => x.TrainNo));
+
+            try
+            {
+                // 配属接口同样只识别单个车组号，重联时取第一个车组号查询
+                var carInfo = trainCodes.Count > 0
+                    ? await queryService.QueryEmuCarInfoAsync(trainCodes[0])
+                    : null;
+                if (carInfo != null)
+                {
+                    TrainBelong = $"{carInfo.Bureau ?? "未知"} {carInfo.Depot ?? "未知"}";
+                    TrainMaker = $"{carInfo.TrainsetManufacturer ?? "未知"} 制造";
+                }
+            }
+            catch (Exception ex)
+            {
+                // 配属信息属于附加信息，失败时不影响交路表展示
+                Trace.WriteLine($"动车组配属信息获取失败: {ex.Message}");
             }
         }
         catch (Exception ex)
@@ -96,54 +127,61 @@ public partial class EMU_RoutingDetailsViewModel : ObservableRecipient
             progressBarVM.TaskIsInProgress = "Collapsed";
         }
     }
+
+    /// <summary>
+    /// 获取需要查询的车组号列表，重联时包含全部车组号
+    /// </summary>
+    private static List<string> GetTrainCodes(EmuOperation data)
+    {
+        if (data.TrainCodes is { Count: > 0 })
+        {
+            return data.TrainCodes
+                .Where(code => !string.IsNullOrWhiteSpace(code))
+                .Select(code => code.Trim())
+                .Distinct()
+                .ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(data.EmuNo))
+        {
+            return data.EmuNo
+                .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Select(code => code.Trim())
+                .Distinct()
+                .ToList();
+        }
+
+        return new List<string>();
+    }
+
+    /// <summary>
+    /// 跳转到列车图鉴并自动填充当前车组号
+    /// </summary>
+    [RelayCommand]
+    private void ViewAtlasImage()
+    {
+        // 重联车组的 CurrentEmuNo 形如 "CR400BF-5033/CR400BF-5076"，
+        // 列车图鉴只支持单个车组号，这里取第一个。
+        var emuNo = CurrentEmuNo?
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(code => code.Trim())
+            .FirstOrDefault(code => !string.IsNullOrEmpty(code));
+
+        if (string.IsNullOrEmpty(emuNo))
+            return;
+
+        // 切换到 Home 标签页，导航栏会同步选中“列车图鉴”
+        if (MainWindow.Instance?.MainTabView is TabView tabView)
+        {
+            tabView.SelectedIndex = 0;
+        }
+
+        App.GetService<INavigationService>().NavigateTo(typeof(TrainAtlasViewModel).FullName!, emuNo);
+    }
+
     private async void WaitCloseInfoBar()
     {
         await Task.Delay(3000);
         progressBarVM.IfShowErrorInfoBarOpen = false;
-    }
-    public EmuAssignment FilterByTrainModel(ObservableCollection<EmuAssignment> assignments, string targetTrainModel)
-    {
-        if (assignments == null || string.IsNullOrEmpty(targetTrainModel))
-            return null;
-
-        // 精确匹配车型
-        return assignments.FirstOrDefault(a => a.TrainModel == targetTrainModel);
-    }
-
-    [RelayCommand]
-    private async Task SaveEmuImageAsync()
-    {
-        if (string.IsNullOrEmpty(TrainEmuModel) || imageBytes == null)
-            return;
-
-        try
-        {
-            var savePicker = new FileSavePicker();
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Instance);
-            WinRT.Interop.InitializeWithWindow.Initialize(savePicker, hwnd);
-
-            savePicker.SuggestedFileName = $"{TrainEmuModel}";
-            savePicker.FileTypeChoices.Add("PNG 图片", new List<string> { ".png" });
-            savePicker.DefaultFileExtension = ".png";
-
-            var file = await savePicker.PickSaveFileAsync();
-            if (file != null)
-            {
-                // 直接使用缓存的图片数据保存
-                await FileIO.WriteBytesAsync(file, imageBytes);
-
-                progressBarVM.IfShowErrorInfoBarOpen = true;
-                progressBarVM.ShowErrorInfoBarContent = $"图片已保存到: {file.Path}";
-                progressBarVM.ShowErrorInfoBarTitle = "保存成功";
-                WaitCloseInfoBar();
-            }
-        }
-        catch (Exception ex)
-        {
-            progressBarVM.IfShowErrorInfoBarOpen = true;
-            progressBarVM.ShowErrorInfoBarContent = $"保存失败: {ex.Message}";
-            progressBarVM.ShowErrorInfoBarTitle = "错误";
-            WaitCloseInfoBar();
-        }
     }
 }

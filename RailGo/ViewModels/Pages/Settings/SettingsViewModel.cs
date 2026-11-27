@@ -1,11 +1,9 @@
-﻿using System.Reflection;
-using System.Windows.Input;
+﻿using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RailGo.Contracts.Services;
 using RailGo.Helpers;
 using Microsoft.UI.Xaml;
-using Windows.ApplicationModel;
 using Windows.System;
 
 namespace RailGo.ViewModels.Pages.Settings;
@@ -40,24 +38,13 @@ public partial class SettingsViewModel : ObservableRecipient
 
     private static string GetVersionDescription()
     {
-        Version version;
-        if (RuntimeHelper.IsMSIX)
-        {
-            var packageVersion = Package.Current.Id.Version;
-            version = new(packageVersion.Major, packageVersion.Minor, packageVersion.Build, packageVersion.Revision);
-        }
-        else
-        {
-            version = Assembly.GetExecutingAssembly().GetName().Version!;
-        }
-
-        return $"{"AppDisplayName".GetLocalized()} - {version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+        return $"{"AppDisplayName".GetLocalized()} - 0.1.4.0";
     }
 
     [RelayCommand]
     private async Task OpenWebsiteAsync()
     {
-        await Launcher.LaunchUriAsync(new Uri("https://railgo.dev/"));
+        await Launcher.LaunchUriAsync(new Uri("https://docs.railgo.dev/"));
     }
 
     [RelayCommand]

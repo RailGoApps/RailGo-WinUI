@@ -151,7 +151,7 @@
     <value>隐私政策</value>
   </data>
   <data name="SettingsPage_PrivacyTermsLink.NavigateUri" xml:space="preserve">
-    <value>https://railgo.dev/Agreements/PrivacyTerms.html</value>
+    <value>https://docs.railgo.dev/Agreements/PrivacyTerms.html</value>
   </data>
   <data name="AppNotificationSamplePayload" xml:space="preserve">
     <value>&lt;toast launch="action=ToastClick"&gt;
@@ -168,7 +168,7 @@
 &lt;/toast&gt;</value>
   </data>
   <data name="Shell_EMU_Routing.Content" xml:space="preserve">
-    <value>动车组车底查询</value>
+    <value>动车组交路</value>
   </data>
   <data name="EmuIdTextBox.PlaceholderText" xml:space="preserve">
     <value>请输入列车编号</value>
@@ -193,6 +193,9 @@
   </data>
   <data name="Shell_StationToStation.Content" xml:space="preserve">
     <value>站站区间查询</value>
+  </data>
+  <data name="Shell_TrainAtlas.Content" xml:space="preserve">
+    <value>列车图鉴</value>
   </data>
   <data name="Shell_Ticket_Generate.Content" xml:space="preserve">
     <value>车票生成</value>

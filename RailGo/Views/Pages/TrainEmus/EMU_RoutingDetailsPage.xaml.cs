@@ -1,10 +1,11 @@
-﻿using System.Collections.ObjectModel;
+﻿﻿﻿﻿using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
 using RailGo.Core.Models;
 using RailGo.Core.Models.QueryDatas;
 using RailGo.ViewModels.Pages.TrainEmus;
+using RailGo.Views.ContentDialogs;
 using RailGo.Views.Pages.Trains;
 
 namespace RailGo.Views.Pages.TrainEmus;
@@ -71,5 +72,27 @@ public sealed partial class EMU_RoutingDetailsPage : Page
         };
         MainWindow.Instance.MainTabView.TabItems.Add(tabViewItem);
         MainWindow.Instance.MainTabView.SelectedItem = tabViewItem;
+    }
+
+    private async void ViewCoachPicBtn_Click(object sender, RoutedEventArgs e)
+    {
+        // 优先使用交路表中选中的车次，未选中时回退到第一条交路
+        var trainNo = _item?.TrainNo;
+        if (string.IsNullOrWhiteSpace(trainNo))
+        {
+            trainNo = ViewModel.TrainEmuInfos?.FirstOrDefault()?.TrainNo;
+        }
+
+        trainNo = trainNo?.Split('/')[0];
+        if (string.IsNullOrWhiteSpace(trainNo))
+        {
+            return;
+        }
+
+        var dialog = new CoachPicDialog(trainNo)
+        {
+            XamlRoot = this.XamlRoot
+        };
+        await dialog.ShowAsync();
     }
 }

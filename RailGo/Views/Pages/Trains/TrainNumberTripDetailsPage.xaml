@@ -65,6 +65,36 @@
                     <TextBlock Text="{x:Bind ViewModel.EndStationName, Mode=OneWay}" FontSize="12" Margin="20,5"  Grid.Row="1" Grid.Column="2"/>
                 </Grid>
             </StackPanel>
+            <Border Grid.Row="1"
+                    Visibility="{x:Bind ViewModel.IsCoachPicVisible, Mode=OneWay}"
+                    Margin="20,10,20,20"
+                    Padding="12"
+                    CornerRadius="8"
+                    HorizontalAlignment="Left"
+                    BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="8" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <TextBlock Text="列车车厢图" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
+                        <TextBlock Text="{x:Bind ViewModel.CoachCarType, Mode=OneWay, TargetNullValue=' -- '}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{x:Bind ViewModel.CoachCarCode, Mode=OneWay, TargetNullValue=''}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="{x:Bind ViewModel.CoachSummary, Mode=OneWay, TargetNullValue=''}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               MaxWidth="360"
+                               HorizontalAlignment="Left"/>
+                    <Button Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Left"
+                            Click="ViewCoachPicBtn_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE7C0;" FontSize="16"/>
+                            <TextBlock Text="查看列车车厢图"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
         </Grid>
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Grid.Column="1">
             <Grid HorizontalAlignment="Center" Margin="40,40">
@@ -75,22 +105,40 @@
                 </Grid.RowDefinitions>
                 <Grid.Resources>
                     <DataTemplate x:Key="ViaStationsStationInformation">
-                        <StackPanel Orientation="Horizontal">
-                            <HyperlinkButton Margin="10,10" Content="车站详细信息" Click="DetailBtnClick" x:Name="ViaStationsStationInformation"/>
-                        </StackPanel>
+                        <Border Background="{ThemeResource RowDetailsBackgroundBrush}"
+                                BorderBrush="{ThemeResource RowDetailsBorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Padding="4,2"
+                                HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal">
+                                <HyperlinkButton Margin="10,10" Content="车站详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="ViaStationsStationInformation"/>
+                            </StackPanel>
+                        </Border>
                     </DataTemplate>
                     <DataTemplate x:Key="RoutingsInformation">
-                        <StackPanel Orientation="Horizontal">
-                            <HyperlinkButton Margin="10,10" Content="车次详细信息" Click="DetailBtnClick" x:Name="RoutingsTrainInformation"/>
-                            <HyperlinkButton Margin="10,10" Content="始发车站详细信息" Click="DetailBtnClick" x:Name="RoutingsFromStationInformation"/>
-                            <HyperlinkButton Margin="10,10" Content="终到车站详细信息" Click="DetailBtnClick" x:Name="RoutingsToStationInformation"/>
-                        </StackPanel>
+                        <Border Background="{ThemeResource RowDetailsBackgroundBrush}"
+                                BorderBrush="{ThemeResource RowDetailsBorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Padding="4,2"
+                                HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal">
+                                <HyperlinkButton Margin="10,10" Content="车次详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="RoutingsTrainInformation"/>
+                                <HyperlinkButton Margin="10,10" Content="始发车站详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="RoutingsFromStationInformation"/>
+                                <HyperlinkButton Margin="10,10" Content="终到车站详细信息" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="RoutingsToStationInformation"/>
+                            </StackPanel>
+                        </Border>
                     </DataTemplate>
                     <DataTemplate x:Key="EmuTrainsTemplate">
-                        <StackPanel Orientation="Horizontal">
-                            <HyperlinkButton Margin="10,10" x:Uid="TrainNumberDetails" Click="DetailBtnClick" x:Name="RoutingsTrainNumberDetailsInformation"/>
-                            <HyperlinkButton Margin="10,10" x:Uid="TrainEmuDetails" Click="DetailBtnClick" x:Name="RoutingsTrainEmuDetailsInformation"/>
-                        </StackPanel>
+                        <Border Background="{ThemeResource RowDetailsBackgroundBrush}"
+                                BorderBrush="{ThemeResource RowDetailsBorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Padding="4,2"
+                                HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal">
+                                <HyperlinkButton Margin="10,10" x:Uid="TrainNumberDetails" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="RoutingsTrainNumberDetailsInformation"/>
+                                <HyperlinkButton Margin="10,10" x:Uid="TrainEmuDetails" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="DetailBtnClick" x:Name="RoutingsTrainEmuDetailsInformation"/>
+                            </StackPanel>
+                        </Border>
                     </DataTemplate>
                 </Grid.Resources>
                 <Grid Grid.Row="0">
@@ -104,9 +152,10 @@
                         Margin="0,5,0,5"/>
                     <controls:DataGrid Grid.Row="1"           
                         Margin="0,5,0,10"
+                        Height="240"
                         AutoGenerateColumns="False"
-                        ScrollViewer.VerticalScrollBarVisibility="Visible"
-                        ScrollViewer.HorizontalScrollBarVisibility="Visible"
+                        VerticalScrollBarVisibility="Visible"
+                        HorizontalScrollBarVisibility="Visible"
                         IsReadOnly="True"
                         RowDetailsTemplate="{StaticResource ViaStationsStationInformation}"
                         RowDetailsVisibilityMode="VisibleWhenSelected"
@@ -154,8 +203,9 @@
                                 </controls:DataGridTemplateColumn.CellTemplate>
                             </controls:DataGridTemplateColumn>
                             <controls:DataGridTextColumn Binding="{Binding StopTime, TargetNullValue=' -- '}" x:Uid="StopMinutes_Header" />
-                            <controls:DataGridTextColumn Binding="{Binding Distance, TargetNullValue=' -- '}" x:Uid="Distance_Header" />
-                            <controls:DataGridTextColumn Binding="{Binding Speed, TargetNullValue=' -- '}" x:Uid="Speed_Header" />
+                            <controls:DataGridTextColumn Binding="{Binding PlatformDisplay, TargetNullValue=' -- '}" Header="站台" Width="64" />
+                            <controls:DataGridTextColumn Binding="{Binding TicketGateDisplay, TargetNullValue=' -- '}" Header="检票口" Width="180" />
+                            <controls:DataGridTextColumn Binding="{Binding StationExitDisplay, TargetNullValue=' -- '}" Header="出站口" Width="150" />
                             <controls:DataGridTemplateColumn Header="正晚点">
                                 <controls:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -171,7 +221,7 @@
                         </controls:DataGrid.Columns>
                     </controls:DataGrid>
                 </Grid>
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.IfRouting, Mode=OneWay}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -182,9 +232,10 @@
                         Margin="0,5,0,5"/>
                     <controls:DataGrid Grid.Row="1"
                         Margin="0,5,0,10"
+                        Height="180"
                         AutoGenerateColumns="False"
-                        ScrollViewer.VerticalScrollBarVisibility="Visible"
-                        ScrollViewer.HorizontalScrollBarVisibility="Visible"
+                        VerticalScrollBarVisibility="Visible"
+                        HorizontalScrollBarVisibility="Visible"
                         IsReadOnly="True"
                         RowDetailsTemplate="{StaticResource RoutingsInformation}"
                         RowDetailsVisibilityMode="VisibleWhenSelected"
@@ -210,9 +261,10 @@
                         Margin="0,5,0,5"/>
                     <controls:DataGrid Grid.Row="1"
                         Margin="0,5,0,10"
+                        Height="180"
                         AutoGenerateColumns="False"
-                        ScrollViewer.VerticalScrollBarVisibility="Visible"
-                        ScrollViewer.HorizontalScrollBarVisibility="Visible"
+                        VerticalScrollBarVisibility="Visible"
+                        HorizontalScrollBarVisibility="Visible"
                         IsReadOnly="True"
                         RowDetailsTemplate="{StaticResource EmuTrainsTemplate}"
                         RowDetailsVisibilityMode="VisibleWhenSelected"

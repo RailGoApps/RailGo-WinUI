@@ -12,6 +12,7 @@ using RailGo.ViewModels.Pages.Trains;
 using RailGo.ViewModels.Pages.TrainEmus;
 using RailGo.ViewModels.Pages.Stations;
 using RailGo.ViewModels.Pages.StationToStation;
+using RailGo.ViewModels.Pages.TrainAtlas;
 using RailGo.Views.Pages.Shell;
 using RailGo.Views.Pages.Settings;
 using RailGo.Views.Pages.Settings.DataSources;
@@ -19,6 +20,7 @@ using RailGo.Views.Pages.Trains;
 using RailGo.Views.Pages.TrainEmus;
 using RailGo.Views.Pages.Stations;
 using RailGo.Views.Pages.StationToStation;
+using RailGo.Views.Pages.TrainAtlas;
 
 namespace RailGo.Services;
 
@@ -34,6 +36,7 @@ public class PageService : IPageService
         Configure<Train_NumberViewModel, Train_NumberPage>();
         Configure<Station_InformationViewModel, Station_InformationPage>();
         Configure<StationToStationViewModel, StationToStationPage>();
+        Configure<TrainAtlasViewModel, TrainAtlasPage>();
         Configure<Ticket_GenerateViewModel, Ticket_GeneratePage>();
         Configure<StationDetailsViewModel, StationDetailsPage>();
         Configure<DataSources_ShellViewModel, DataSources_ShellPage>();

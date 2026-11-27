@@ -15,148 +15,111 @@
     <Grid x:Name="ContentArea" Margin="20">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300"/>
-            <ColumnDefinition Width="10"/>
             <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="10"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="5">
-            <TextBlock Text="{x:Bind ViewModel.TrainEmuModel, Mode=OneWay}" 
-                       FontSize="36" 
-                       FontWeight="Bold" 
+        <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="5" VerticalAlignment="Top">
+            <TextBlock Text="{x:Bind ViewModel.TrainEmuModel, Mode=OneWay}"
+                       FontSize="36"
+                       FontWeight="Bold"
+                       TextWrapping="Wrap"
                        HorizontalAlignment="Center"/>
 
-            <TextBlock Text="{x:Bind ViewModel.TrainEmuCode, Mode=OneWay}" 
-                       FontSize="36" 
-                       FontWeight="Bold" 
-                       HorizontalAlignment="Center"
-                       Margin="0,0,0,20"/>
+            <TextBlock Text="{x:Bind ViewModel.TrainEmuCode, Mode=OneWay}"
+                       FontSize="36"
+                       FontWeight="Bold"
+                       HorizontalAlignment="Center"/>
 
-            <TextBlock Text="{x:Bind ViewModel.TrainBelong, Mode=OneWay}" 
+            <TextBlock Text="{x:Bind ViewModel.TrainBelong, Mode=OneWay}"
                        FontSize="18"
-                       HorizontalAlignment="Center"
-                       Margin="0,0,0,10"/>
-
-            <TextBlock Text="{x:Bind ViewModel.TrainMaker, Mode=OneWay}" 
-                       FontSize="16" 
-                       FontFamily="Consolas"
+                       Margin="0,20,0,10"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
                        HorizontalAlignment="Center"/>
 
+            <TextBlock Text="{x:Bind ViewModel.TrainMaker, Mode=OneWay}"
+                       FontSize="16"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       HorizontalAlignment="Center"/>
+
+            <Button Margin="0,30,0,0"
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Command="{x:Bind ViewModel.ViewAtlasImageCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xEB9F;" FontSize="16"/>
+                    <TextBlock Text="查看车型图片"/>
+                </StackPanel>
+            </Button>
+
+            <Button Margin="0,10,0,0"
+                    HorizontalAlignment="Center"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Click="ViewCoachPicBtn_Click">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE7C0;" FontSize="16"/>
+                    <TextBlock Text="查看列车车厢图"/>
+                </StackPanel>
+            </Button>
         </StackPanel>
 
         <!-- 分隔线 -->
         <Rectangle Grid.Column="1" Fill="LightGray" Width="1" HorizontalAlignment="Center"/>
-        <Rectangle Grid.Column="3" Fill="LightGray" Width="1" HorizontalAlignment="Center"/>
 
-        <!-- 中间：车次信息表格 -->
-        <Grid Grid.Column="2" Margin="10,0,10,0">
-            <Grid.Resources>
-                <DataTemplate x:Key="EmuTrainsTemplate">
-                    <StackPanel Orientation="Horizontal">
-                        <HyperlinkButton Margin="10,10" x:Uid="TrainNumberDetails" Click="TrainNumberDetailsBtn_Click"/>
-                        <HyperlinkButton Margin="10,10" x:Uid="TrainEmuDetails" Click="TrainEmuDetailsBtn_Click"/>
-                    </StackPanel>
-                </DataTemplate>
-            </Grid.Resources>
-
-            <controls:DataGrid x:Name="EmuDataGrid"
-                   AutoGenerateColumns="False"
-                   HorizontalAlignment="Stretch"
-                   VerticalAlignment="Stretch"
-                   VerticalScrollBarVisibility="Auto"
-                   IsReadOnly="True"
-                   RowDetailsTemplate="{StaticResource EmuTrainsTemplate}"
-                   RowDetailsVisibilityMode="VisibleWhenSelected"
-                   ItemsSource="{x:Bind ViewModel.TrainEmuInfos, Mode=OneWay}"
-                   SelectedItem="{x:Bind _item, Mode=TwoWay}">
-                <controls:DataGrid.Columns>
-                    <controls:DataGridTextColumn Binding="{Binding EmuNoFull}" x:Uid="emu_no_Header" />
-                    <controls:DataGridTextColumn Binding="{Binding TrainNo}" x:Uid="train_no_Header" />
-                    <controls:DataGridTextColumn Binding="{Binding Date}" x:Uid="date_Header" />
-                </controls:DataGrid.Columns>
-            </controls:DataGrid>
-        </Grid>
-
-        <!-- 右侧：图片显示区域 -->
-        <Grid Grid.Column="4" Margin="10,0,0,0">
+        <!-- 右侧：交路表 -->
+        <Grid Grid.Column="2" Margin="20,0,0,0">
             <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="1" 
-                 Orientation="Horizontal" 
-                 HorizontalAlignment="Center" 
-                 Margin="0,20,0,0"
-                 Spacing="10">
-                <TextBlock Text="{x:Bind ViewModel.TrainEmuModel, Mode=OneWay}" FontSize="14" />
-                <TextBlock Text="型照片" FontSize="14" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0" HorizontalAlignment="Center" Grid.Row="2" >
-                <TextBlock Text="照片来源：" FontSize="14" VerticalAlignment="Center"/>
-                <RadioButton Content="RailGo照片站" 
-                            IsChecked="True"
-                            GroupName="StationNav"
-                            VerticalAlignment="Center"/>
-            </StackPanel>
-            
-            <!-- 图片容器 -->
-            <Border Grid.Row="3" 
-                    Background="White" 
-                    BorderBrush="LightGray" 
-                    BorderThickness="1"
-                    Padding="20"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Margin="0,15,0,0">
-                <Image x:Name="EmuImage" 
-                       Source="{x:Bind ViewModel.EmuImageSource, Mode=OneWay}"
-                       Stretch="Uniform"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
-            </Border>
+            <TextBlock Grid.Row="0"
+                       Text="交路表（可上下滚动查看完整信息）"
+                       Margin="0,0,0,8"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
 
-            <!-- 工具栏 -->
-            <StackPanel Grid.Row="4" 
-                        Orientation="Vertical" 
-                        Margin="0,20,0,0"
-                        Spacing="10">
+            <Grid Grid.Row="1">
+                <Grid.Resources>
+                    <DataTemplate x:Key="EmuTrainsTemplate">
+                        <Border Background="{ThemeResource RowDetailsBackgroundBrush}"
+                                BorderBrush="{ThemeResource RowDetailsBorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Padding="4,2"
+                                HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal">
+                                <HyperlinkButton Margin="10,10" x:Uid="TrainNumberDetails" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="TrainNumberDetailsBtn_Click"/>
+                                <HyperlinkButton Margin="10,10" x:Uid="TrainEmuDetails" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="TrainEmuDetailsBtn_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </Grid.Resources>
 
-                <!-- 第一行：工具按钮 -->
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                    <Button x:Name="SaveImageButton" 
-                            Content="保存图片"
-                            IsEnabled="{x:Bind ViewModel.IfCanDownload, Mode=OneWay}"
-                            Command="{x:Bind ViewModel.SaveEmuImageCommand}"/>
-                </StackPanel>
-
-                <!-- 第二行：图片信息 -->
-                <StackPanel Orientation="Horizontal" Spacing="15" HorizontalAlignment="Center">
-                    <TextBlock x:Name="PhotographerText" 
-                               Text="拍摄者：未知" 
-                               FontSize="14" 
-                               Foreground="Gray"/>
-                    <TextBlock x:Name="UploadTimeText" 
-                               Text="上传时间：未知" 
-                               FontSize="14" 
-                               Foreground="Gray"/>
-                    <TextBlock x:Name="LocationText" 
-                               Text="拍摄地点：未知" 
-                               FontSize="14" 
-                               Foreground="Gray"/>
-                </StackPanel>
-            </StackPanel>
+                <controls:DataGrid x:Name="EmuDataGrid"
+                       AutoGenerateColumns="False"
+                       HorizontalAlignment="Stretch"
+                       VerticalAlignment="Stretch"
+                       VerticalScrollBarVisibility="Visible"
+                       HorizontalScrollBarVisibility="Visible"
+                       IsReadOnly="True"
+                       RowDetailsTemplate="{StaticResource EmuTrainsTemplate}"
+                       RowDetailsVisibilityMode="VisibleWhenSelected"
+                       ItemsSource="{x:Bind ViewModel.TrainEmuInfos, Mode=OneWay}"
+                       SelectedItem="{x:Bind _item, Mode=TwoWay}">
+                    <controls:DataGrid.Columns>
+                        <controls:DataGridTextColumn Binding="{Binding EmuNoFull}" x:Uid="emu_no_Header" />
+                        <controls:DataGridTextColumn Binding="{Binding TrainNo}" x:Uid="train_no_Header" />
+                        <controls:DataGridTextColumn Binding="{Binding Date}" x:Uid="date_Header" />
+                    </controls:DataGrid.Columns>
+                </controls:DataGrid>
+            </Grid>
         </Grid>
 
         <!-- 加载指示器 -->
-        <muxc:ProgressRing Grid.ColumnSpan="5"
+        <muxc:ProgressRing Grid.ColumnSpan="3"
                           IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
-                          Width="60" 
+                          Width="60"
                           Height="60"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"/>

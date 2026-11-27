@@ -67,4 +67,15 @@ public sealed partial class EMU_RoutingPage : Page
         MainWindow.Instance.MainTabView.TabItems.Add(tabViewItem);
         MainWindow.Instance.MainTabView.SelectedItem = tabViewItem;
     }
+
+    private void EmuIdTextBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key == global::Windows.System.VirtualKey.Enter)
+        {
+            if (ViewModel.SearchEmuTrainsCommand.CanExecute(null))
+            {
+                ViewModel.SearchEmuTrainsCommand.Execute(null);
+            }
+        }
+    }
 }

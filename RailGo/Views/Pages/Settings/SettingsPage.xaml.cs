@@ -147,7 +147,7 @@ public sealed partial class SettingsPage : Page
     /// </summary>
     private async void OnOpenWebsiteClicked(object sender, RoutedEventArgs e)
     {
-        await Launcher.LaunchUriAsync(new Uri("https://railgo.dev/"));
+        await Launcher.LaunchUriAsync(new Uri("https://docs.railgo.dev/"));
     }
 
     /// <summary>
@@ -164,6 +164,42 @@ public sealed partial class SettingsPage : Page
         {
             // 静默处理
         }
+    }
+
+    /// <summary>
+    /// 赞助
+    /// </summary>
+    private async void OnSponsorClicked(object sender, RoutedEventArgs e)
+    {
+        await SponsorDialog.ShowAsync();
+    }
+
+    /// <summary>
+    /// 鸣谢
+    /// </summary>
+    private void OnAcknowledgementsClicked(object sender, RoutedEventArgs e)
+    {
+        var tabView = MainWindow.Instance.MainTabView;
+
+        // 已经打开过鸣谢页则直接切换过去，避免重复开标签
+        foreach (var item in tabView.TabItems)
+        {
+            if (item is TabViewItem existing && (existing.Header as string) == "鸣谢")
+            {
+                tabView.SelectedItem = existing;
+                return;
+            }
+        }
+
+        TabViewItem tabViewItem = new()
+        {
+            Header = "鸣谢",
+            Content = new AcknowledgementsPage(),
+            CanDrag = true,
+            IconSource = new FontIconSource() { Glyph = "\uE77B" }
+        };
+        tabView.TabItems.Add(tabViewItem);
+        tabView.SelectedItem = tabViewItem;
     }
 
     /// <summary>

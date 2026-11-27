@@ -68,4 +68,21 @@ public sealed partial class MainPage : Page
     {
         await AllNoticesDialog.ShowAsync();
     }
+
+    /// <summary>
+    /// 点击首页图片广告时打开对应的跳转链接
+    /// </summary>
+    private async void BannerImage_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    {
+        var jumpUrl = ViewModel?.GetBannerJumpUrl(BannerFlipView.SelectedIndex);
+        if (string.IsNullOrWhiteSpace(jumpUrl))
+        {
+            return;
+        }
+
+        if (Uri.TryCreate(jumpUrl, UriKind.Absolute, out var uri))
+        {
+            await global::Windows.System.Launcher.LaunchUriAsync(uri);
+        }
+    }
 }

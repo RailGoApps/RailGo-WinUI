@@ -10,51 +10,24 @@
     xmlns:ui="using:CommunityToolkit.WinUI"
     xmlns:local="using:RailGo.Helpers"
     mc:Ignorable="d">
-    <Page.Resources>
-        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-    </Page.Resources>
     <Grid>
-
         <NavigationView
             x:Name="NavigationViewControl"
             IsTitleBarAutoPaddingEnabled="False"
             AlwaysShowHeader="False"
-            IsTabStop="False" 
+            IsTabStop="False"
             PaneDisplayMode="Top"
             IsSettingsVisible="False"
-            BackRequested="NavigationViewControl_BackRequested" 
+            BackRequested="NavigationViewControl_BackRequested"
             ItemInvoked="NavigationViewControl_ItemInvoked">
             <NavigationView.Resources>
                 <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
             </NavigationView.Resources>
             <NavigationView.MenuItems>
-                <NavigationViewItem Icon="{ui:FontIcon Glyph=&#xE80F;}" 
-                                    Content="基本" 
+                <NavigationViewItem Icon="{ui:FontIcon Glyph=&#xE80F;}"
+                                    Content="数据源设置"
                                     Tag="RailGo.Views.Pages.Settings.DataSources.DataSources_MainPage" />
-                <NavigationViewItem Icon="{ui:FontIcon Glyph=&#xEDA2;}" 
-                                    Content="离线数据库" 
-                                    Tag="RailGo.Views.Pages.Settings.DataSources.DataSources_OnlineDatabasesPage" />
-                <NavigationViewItem Icon="{ui:FontIcon Glyph=&#xE8A1;}" 
-                                    Content="自定义源组合" 
-                                    Tag="RailGo.Views.Pages.Settings.DataSources.DataSources_CustomSourcesPage" 
-                                    IsEnabled="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay}"
-                                    Visibility="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                <NavigationViewItem Icon="{ui:FontIcon Glyph=&#xEDE4;}"
-                                    Content="自定义在线源" 
-                                    Tag="RailGo.Views.Pages.Settings.DataSources.DataSources_ThirdPartyApiServicesPage" 
-                                    IsEnabled="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay}"
-                                    Visibility="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                <NavigationViewItem Icon="{ui:FontIcon Glyph=&#xE78C;}"
-                                    Content="自定义离线数据库" 
-                                    Tag="RailGo.Views.Pages.Settings.DataSources.DataSources_LocalDatabasesPage" 
-                                    IsEnabled="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay}"
-                                    Visibility="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                <NavigationViewItem Icon="{ui:FontIcon Glyph=&#xE969;}"
-                                    Content="自定义在线数据库"
-                                    Tag="RailGo.Views.Pages.Settings.DataSources.DataSources_ThirdPartyDatabasesPage" 
-                                    IsEnabled="{x:Bind ViewModel.AllowCustomSource, Mode=OneWay}"
-                                    Visibility="Collapsed"/>
             </NavigationView.MenuItems>
             <Frame x:Name="ContentFrame" Navigated="ContentFrame_Navigated" Padding="55,10,55,10"/>
         </NavigationView>

@@ -7,7 +7,8 @@ using System.Threading.Tasks;
 namespace RailGo.Core.Models.Controls;
 public class FeatureButtonData
 {
-    public string Icon
+    // 24x24 图标路径数据
+    public string IconPath
     {
         get; set;
     }

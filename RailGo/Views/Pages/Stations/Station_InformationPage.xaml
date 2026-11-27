@@ -12,18 +12,19 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     mc:Ignorable="d">
 
-    <Grid x:Name="ContentArea" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,20">
+    <Grid x:Name="ContentArea" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="20">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="0">
+        <StackPanel Orientation="Vertical" VerticalAlignment="Top" HorizontalAlignment="Center" Grid.Column="0">
             <TextBlock x:Uid="StationSearchHeader" Margin="0,10,0,10" Text="车站搜索"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Height="35">
                 <TextBox x:Name="StationSearchTextBox" x:Uid="StationSearchTextBox" Width="200" 
-                         Text="{x:Bind ViewModel.InputSearchStation, Mode=TwoWay}"/>
+                         Text="{x:Bind ViewModel.InputSearchStation, Mode=TwoWay}"
+                         KeyDown="StationSearchTextBox_KeyDown"/>
                 <Button x:Name="GetBtn" x:Uid="GetBtn" Style="{StaticResource AccentButtonStyle}" 
                         Command="{x:Bind ViewModel.SearchStationsCommand}"
                         Margin="20,0">
@@ -37,21 +38,38 @@
             </StackPanel>
         </StackPanel>
 
-        <Grid HorizontalAlignment="Center" Margin="20,20" Grid.Column="2">
+        <Grid HorizontalAlignment="Stretch" Margin="20,0,0,0" Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
             <Grid.Resources>
                 <DataTemplate x:Key="RowDetailsTemplate">
-                    <StackPanel Orientation="Horizontal">
-                        <HyperlinkButton Margin="10,10" Content="选择" Click="SelectClick"/>
-                        <HyperlinkButton Margin="10,10" Content="查看详情" Click="StationDetailsBtn_Click"/>
-                    </StackPanel>
+                    <Border Background="{ThemeResource RowDetailsBackgroundBrush}"
+                            BorderBrush="{ThemeResource RowDetailsBorderBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="4,2"
+                            HorizontalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal">
+                            <HyperlinkButton Margin="10,10" Content="选择" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="SelectClick"/>
+                            <HyperlinkButton Margin="10,10" Content="查看详情" Foreground="{ThemeResource RowDetailsLinkForegroundBrush}" Click="StationDetailsBtn_Click"/>
+                        </StackPanel>
+                    </Border>
                 </DataTemplate>
             </Grid.Resources>
 
+            <TextBlock Grid.Row="0"
+                       Text="查询结果（可上下滚动、左右滑动查看完整表格）"
+                       Margin="0,0,0,8"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
             <controls:DataGrid 
+                   Grid.Row="1"
                    AutoGenerateColumns="False"
                    HorizontalAlignment="Stretch"
                    VerticalAlignment="Stretch"
-                   VerticalScrollBarVisibility="Auto"
+                   VerticalScrollBarVisibility="Visible"
+                   HorizontalScrollBarVisibility="Visible"
                    RowDetailsTemplate="{StaticResource RowDetailsTemplate}"
                    RowDetailsVisibilityMode="VisibleWhenSelected"
                    IsReadOnly="True"

@@ -31,6 +31,13 @@ public class TrainPreselectResult
         }
     }
 
+    // 查询日期（yyyyMMdd），用于 V2 车次接口
+    [JsonIgnore]
+    public string Date
+    {
+        get; set;
+    }
+
     [JsonIgnore]
     public string Prefix
     {
@@ -145,6 +152,22 @@ public class Train
         get; set;
     }
 
+    // V2 接口返回的路局简称
+    [JsonProperty("bureauShortName")]
+    public string BureauShortName
+    {
+        get; set;
+    }
+
+    [JsonIgnore]
+    public string DisplayBureau => string.IsNullOrEmpty(BureauShortName) ? BureauName : BureauShortName;
+
+    [JsonProperty("spend")]
+    public int? Spend
+    {
+        get; set;
+    }
+
     [JsonProperty("runner")]
     public string Runner
     {
@@ -235,29 +258,43 @@ public class TimetableItem
         get; set;
     }
 
+    [JsonProperty("runTime")]
+    public int RunTime
+    {
+        get; set;
+    }
+
     [JsonIgnore]
     public DelayInfo DelayInfo
     {
         get; set;
     }
 
+    // 检票口、站台及出站口信息
     [JsonIgnore]
-    public string DelayDisplay => DelayInfo?.DelayMinutes switch
+    public StationExitInfo ExitInfo
     {
-        null => "--",         
-        0 => "正点",    
-        > 0 => $"晚点{DelayInfo.DelayMinutes}分钟",  
-        < 0 => $"提前{-DelayInfo.DelayMinutes}分钟"  
-    };
+        get; set;
+    }
 
     [JsonIgnore]
-    public string DelayColor => DelayInfo?.DelayMinutes switch
-    {
-        null => "#000000",   
-        0 => "#000000",     
-        > 0 => "#c0392b",   
-        < 0 => "#27ae60"
-    };
+    public string PlatformDisplay => string.IsNullOrEmpty(ExitInfo?.Platform) ? "--" : ExitInfo.Platform;
+
+    [JsonIgnore]
+    public string TicketGateDisplay => ExitInfo?.Entrance != null && ExitInfo.Entrance.Count > 0
+        ? string.Join(" / ", ExitInfo.Entrance)
+        : "--";
+
+    [JsonIgnore]
+    public string StationExitDisplay => ExitInfo?.Exit != null && ExitInfo.Exit.Count > 0
+        ? string.Join(" / ", ExitInfo.Exit)
+        : "--";
+
+    [JsonIgnore]
+    public string DelayDisplay => DelayInfo == null ? "--" : DelayInfo.Display;
+
+    [JsonIgnore]
+    public string DelayColor => DelayInfo?.DisplayColor ?? "#000000";
 
     [JsonIgnore]
     public string? ActualArrivalTime
@@ -364,7 +401,7 @@ public class TrainDiagram
 #endregion
 
 #region 正晚点信息
-// 正晚点信息
+// 正晚点信息（V2）
 public class DelayInfo
 {
     [JsonProperty("stationName")]
@@ -373,83 +410,257 @@ public class DelayInfo
         get; set;
     }
 
-    [JsonProperty("stationTelegramCode")]
+    [JsonProperty("stationTelecode")]
     public string StationTelecode
     {
         get; set;
     }
 
-    [JsonProperty("delayMinutes")]
+    [JsonProperty("planArriveTime")]
+    public string PlanArriveTime
+    {
+        get; set;
+    }
+
+    [JsonProperty("planDepartTime")]
+    public string PlanDepartTime
+    {
+        get; set;
+    }
+
+    [JsonProperty("delayStatus")]
+    public string DelayStatus
+    {
+        get; set;
+    }
+
+    [JsonProperty("delayStatusCode")]
+    public string DelayStatusCode
+    {
+        get; set;
+    }
+
+    // V2 接口返回正晚点的分钟数（绝对值，方向由 delayStatusCode 决定）
+    [JsonProperty("delayTime")]
+    public int? DelayTime
+    {
+        get; set;
+    }
+
+    [JsonIgnore]
+    public string ArrivalTime => PlanArriveTime;
+
+    [JsonIgnore]
+    public string DepartureTime => PlanDepartTime;
+
+    [JsonIgnore]
+    public bool IsMissing => string.IsNullOrEmpty(DelayStatusCode)
+        || DelayStatusCode.Contains("MISSING", System.StringComparison.OrdinalIgnoreCase);
+
+    [JsonIgnore]
+    public bool IsPrediction => DelayStatusCode?.EndsWith("_PREDICTION", System.StringComparison.OrdinalIgnoreCase) == true;
+
+    [JsonIgnore]
     public int? DelayMinutes
     {
-        get; set;
+        get
+        {
+            if (IsMissing)
+            {
+                return null;
+            }
+
+            var code = DelayStatusCode?.ToUpperInvariant();
+            var minutes = DelayTime ?? 0;
+
+            if (code != null && code.StartsWith("DELAY"))
+            {
+                return minutes;
+            }
+
+            if (code != null && code.StartsWith("EARLY"))
+            {
+                return -minutes;
+            }
+
+            if (code != null && code.StartsWith("ON_TIME"))
+            {
+                return 0;
+            }
+
+            return minutes;
+        }
     }
 
-    [JsonProperty("status")]
-    public int? Status
+    [JsonIgnore]
+    public string Display
     {
-        get; set;
+        get
+        {
+            if (IsMissing)
+            {
+                return "未维护";
+            }
+
+            var minutes = DelayMinutes ?? 0;
+            var prefix = IsPrediction ? "预计" : string.Empty;
+
+            if (minutes > 0)
+            {
+                return $"{prefix}晚点{minutes}分钟";
+            }
+
+            if (minutes < 0)
+            {
+                return $"{prefix}早点{-minutes}分钟";
+            }
+
+            return IsPrediction ? "预计正点" : "正点";
+        }
     }
 
-    [JsonProperty("arrivalTime")]
-    public string ArrivalTime
+    [JsonIgnore]
+    public string DisplayColor
     {
-        get; set;
-    }
+        get
+        {
+            if (IsMissing)
+            {
+                return "#8a8a8e";
+            }
 
-    [JsonProperty("departureTime")]
-    public string DepartureTime
-    {
-        get; set;
-    }
+            var minutes = DelayMinutes ?? 0;
 
-    [JsonProperty("stopMinutes")]
-    public int? StopMinutes
-    {
-        get; set;
-    }
+            if (minutes > 0)
+            {
+                return "#c0392b";
+            }
 
-    [JsonProperty("arrivalDate")]
-    public string ArrivalDate
-    {
-        get; set;
+            if (minutes < 0)
+            {
+                return "#27ae60";
+            }
+
+            return "#107c10";
+        }
     }
 }
 #endregion
 
-#region 停台检票口信息
-// 停台检票口信息
-public class PlatformInfo
+#region 检票口、站台及出站口信息
+// 检票口、站台及出站口信息（V2）
+public class StationExitInfo
 {
-    [JsonProperty("status")]
-    public bool Status
+    [JsonProperty("entrance")]
+    public List<string> Entrance
     {
         get; set;
     }
 
-    [JsonProperty("data")]
-    public PlatformData Data
-    {
-        get; set;
-    }
-
-    [JsonProperty("errorMsg")]
-    public string ErrorMsg
-    {
-        get; set;
-    }
-}
-
-public class PlatformData
-{
     [JsonProperty("platform")]
     public string Platform
     {
         get; set;
     }
 
-    [JsonProperty("wicket")]
-    public string Wicket
+    [JsonProperty("exit")]
+    public List<string> Exit
+    {
+        get; set;
+    }
+}
+#endregion
+
+#region 列车车厢图信息
+// 列车车厢图（V2）
+public class CoachPicInfo
+{
+    [JsonProperty("carType")]
+    public string CarType
+    {
+        get; set;
+    }
+
+    [JsonProperty("carCode")]
+    public string CarCode
+    {
+        get; set;
+    }
+
+    [JsonProperty("coachPicList")]
+    public List<CoachPicItem> CoachPicList
+    {
+        get; set;
+    }
+
+    [JsonProperty("coachDetailPicList")]
+    public List<CoachPicItem> CoachDetailPicList
+    {
+        get; set;
+    }
+
+    [JsonProperty("trainStyle")]
+    public string TrainStyle
+    {
+        get; set;
+    }
+
+    [JsonProperty("carInfo")]
+    public List<CoachCarInfoItem> CarInfo
+    {
+        get; set;
+    }
+
+    [JsonProperty("carPic")]
+    public string CarPic
+    {
+        get; set;
+    }
+}
+
+public class CoachCarInfoItem
+{
+    [JsonProperty("pictureValue")]
+    public string PictureValue
+    {
+        get; set;
+    }
+
+    [JsonProperty("picOrder")]
+    public int PicOrder
+    {
+        get; set;
+    }
+
+    [JsonProperty("pictureUrl")]
+    public string PictureUrl
+    {
+        get; set;
+    }
+
+    [JsonProperty("pictureName")]
+    public string PictureName
+    {
+        get; set;
+    }
+}
+
+public class CoachPicItem
+{
+    [JsonProperty("picOrder")]
+    public int PicOrder
+    {
+        get; set;
+    }
+
+    [JsonProperty("pictureUrl")]
+    public string PictureUrl
+    {
+        get; set;
+    }
+
+    [JsonProperty("pictureName")]
+    public string PictureName
     {
         get; set;
     }
